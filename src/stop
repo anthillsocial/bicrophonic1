@@ -1,2 +1,21 @@
-killall swamp_playd
-killall swamp_gpsd
+#!/bin/sh 
+# Script called via systemd
+N=$(ps aux | grep gpsd_lua | grep -v grep)
+if [ ! -z "$N" ]; then
+    killall gpsd_lua
+    #echo "killed gpsd_lua"
+fi
+N=$(ps aux | grep bicrophonic1 | grep -v grep)
+if [ ! -z "$N" ]; then
+    killall bicrophonic1
+    #echo "killed bicrophonic1"
+fi
+N=$(ps aux | grep SonicBikeAudioEngine | grep -v grep)
+if [ ! -z "$N" ]; then
+    killall SonicBikeAudioEngine
+    #echo "killed SonicBikeAudioEngine"
+fi
+
+#killall -9 bicrophonic1
+#killall -9 SonicBikeAudioEngine
+#killall -9 gpsd_lua 

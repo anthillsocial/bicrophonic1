@@ -27,20 +27,17 @@ require 'poly'
 require 'map'
 require 'direction'
 require 'random'
---require 'audioc'
 require 'socket'
 require 'utils'
 require 'json'
 
 CONFIG=utils.load_json("../config.json")  
---dofile(scriptpath..'../config/swamp.conf')
---dofile(scriptpath..'../config/random.conf')
---utils.log(logfile, "waiting for gpsd")
 
 local logfile = CONFIG.logfile
 local gpsdev  = CONFIG.gps_device
 local mapfile = CONFIG.mapfile
-local module  = "swamp"
+local audio_player_bin = CONFIG.audio_player_bin
+local module  = "bicrophonic1"
 
 utils.log(logfile, "------------- started swamp -----------------")
 
@@ -68,23 +65,21 @@ end
 local themap=utils.load_json(mapfile)
 map.test_map(themap, logfile)
 
--- start the player
-os.execute(scriptpath.."./swamp_playd &") 
-utils.log(logfile, "swamp_playd started")
---utils.log(logfile, "waiting for playd")
---posix.sleep(139)
+-- start the audio player
+os.execute(audio_player_bin.." &") 
+utils.log(logfile, "audio player started")
+-- posix.sleep(139)
 
 -- start the gps daemon
-os.execute(scriptpath.."./swamp_gpsd &")
-utils.log(logfile, "swamp_gpsd started")
+os.execute(scriptpath.."../lib/gpsd_lua &")
+utils.log(logfile, "gpsd_lua started")
 utils.log(logfile, "waiting for gpsd")
 posix.sleep(4)
 
-utils.log(logfile, "pre loop")
-
 --- connect to the gps pipe
+utils.log(logfile, "attempting gps pipe connection") 
 local file = io.open("/tmp/swamp_gps","r")
-utils.log(logfile, "starting loop")
+utils.log(logfile, "connected to gps pipe")
 
 --------------------
 
@@ -104,10 +99,8 @@ utils.log(logfile, "starting loop")
 local t=0.5
 
 while true do
-    print("Loop and read line")
     local line = file:read()
     -- if we have a new gps fix
-    print("Line read")
     local period_seconds=60*10
     t=math.sin((os.time()*180/period_seconds)*3.141/180)*0.5+0.5
     print("------------------ "..t)

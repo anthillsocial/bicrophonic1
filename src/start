@@ -1,0 +1,17 @@
+#!/bin/sh 
+# Script auto-called via systemd on boot
+# Or you could run: $ ./biophonic1 to start the app...
+
+# Mount the sd card TODO: should move this to fstab...
+sudo mount -L biophonic1 -t vfat /home/sonic/sdcard -o umask=000
+
+# Grab a shared internet connection if we are plugged into a USB cable
+/sbin/route add default gw 192.168.7.1
+echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+
+# Now sort the rest of the process
+./stop                              # Cleanup any open processes
+sleep 1                             # Lets give the audio card time to startup
+amixer -c 0 set PCM 100%            # Set initital audio volume
+cd /home/sonic/bicrophonic1/src     # Move to our dir so relative paths work
+./bicrophonic1 &                    # Start the app
