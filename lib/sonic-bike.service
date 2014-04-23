@@ -1,0 +1,11 @@
+[Unit]
+Description=Sonic Bike
+
+[Service]
+ExecStart=/home/sonic/bicrophonic1/src/start
+ExecStop=/home/sonic/bicrophonic1/src/stop
+Type=idle
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

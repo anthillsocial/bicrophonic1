@@ -7,15 +7,9 @@ NOTE: Currently in active development, not yet working
 Roadmap
 -----------------
 - Create eject button/led for the SD card...
-- Start audio engine.
-- Read a config.
-- Play soundfiles from SD card. 
-- Log output. 
-- Grab GPS coordinates.
-- Detect if current location is within a polygon.
-- Detect direction of travel.
 - Pre-load sounds.
 - Manage audio memory.
+- Check log folder exists
 
 Map control
 -----------------
