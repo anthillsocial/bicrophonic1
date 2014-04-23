@@ -9,6 +9,13 @@ if [ $LUID -ne 0 ]; then
     exit 1
 fi
 
+# Make sure wifi is up
+#INTERFACE=$(ip a | grep wlan1)
+#if [ "$INTERFACE" == "" ]; then
+ip link set wlan0 up 
+#    echo "sss"
+#fi
+
 # Cleanup any open processes
 ./stop > /dev/null                  
 
