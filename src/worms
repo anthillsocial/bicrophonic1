@@ -2,18 +2,17 @@
 import liblo, sys, time, math, threading, subprocess, random
 import Adafruit_BBIO.ADC as ADC
 
+# Start the app with:
+#   ./worms (runs everything)
+#   ./worms test (loads test sounds from a dir)
+#   ./worms analog (just run analog)
+#   ./worms wifi (just runs wifi)
+
 # The application class
 class Wormery:
 
     # Initialise the object
     def __init__(self):
-        # Setup vars
-        self.wifivars = {
-            'ssidlevel':0,
-            'naccesspoints':0,
-            'averagelevel':0,
-            'startosc':False,
-        }
         # Setup the OSC object so we can send messages
         try:
             self.target = liblo.Address(12345)
@@ -21,13 +20,16 @@ class Wormery:
             print(err)
             sys.exit()
         # Load some test sounds
-        self.load_test_sounds()
+        if 'test' in sys.argv:
+            self.load_test_sounds()
         # And setup the analog read
         ADC.setup()
         # Release the worms! Start some threads
-        threading.Thread(target=self.worm_wifi).start()
-        threading.Thread(target=self.worm_wifi_osc).start()
-        #threading.Thread(target=self.worm_analog).start()
+        if 'wifi' in sys.argv or sys.argv[0]== '' :
+            threading.Thread(target=self.worm_wifi).start()
+            threading.Thread(target=self.worm_wifi_osc).start()
+        if 'analog' in sys.argv or sys.argv[0] == '' :
+            threading.Thread(target=self.worm_analog).start()
         
     # Just load some test sounds for us to play with
     def load_test_sounds(self):
@@ -37,6 +39,7 @@ class Wormery:
         directory = "/home/sonic/sdcard/brussels/sound/"
         liblo.send(self.target, "/setaudiodir", directory)
         files = glob.glob("{}*.wav".format(directory)) 
+        print(files)
         files.remove(directory+"startup.wav")
         # Now load an play some files
         self.playrandomfile("/loopplay", 0, directory, files)
@@ -51,6 +54,13 @@ class Wormery:
     
     # Thread to monitor wifi signals
     def worm_wifi(self):
+        # Setup base vars
+        self.wifivars = {
+            'ssidlevel':0,
+            'naccesspoints':0,
+            'averagelevel':0,
+            'startosc':False,
+        }
         # Lets check which interface is up
         try:
             scanme = subprocess.check_output("ip a | grep wlan0", shell=True).decode("utf-8")
@@ -74,7 +84,7 @@ class Wormery:
                         levels.append(int(level))
                         #print(line)
                     # Save the level of a specific wifi ssid
-                    if 'bike' in line:
+                    if 'sonic' in line:
                         self.wifivars['ssidlevel'] = self.grab_signal_level(resp[i-2])
                     i=i+1
                 self.wifivars['averagelevel'] = sum(levels) / len(levels)
@@ -88,7 +98,8 @@ class Wormery:
     def worm_wifi_osc(self):
         oscTimer = AsyncTimer(5) # Trigger every n seconds
         printTimer = AsyncTimer(2) # Trigger every n seconds
-        posRange = Ranger([0,100], [0.0,1.0])
+        posRange = Ranger([0,5], [0.0,1.0])
+        lenRange = Ranger([0,5], [0.0,10.0])
         levelSmoothed = Smoother(4)
         while True:
             if self.wifivars['startosc']: 
@@ -96,17 +107,19 @@ class Wormery:
                 level = levelSmoothed.grab(self.wifivars['ssidlevel'])
                 accesspoints = self.wifivars['naccesspoints']
                 # Calculate variables for the superlooper
-                position = posRange.convert(level)
-                length = 0.5; 
+                position = posRange.convert(accesspoints)
+                length = lenRange.convert(accesspoints)
                 # Send some OSC at a certain interval
                 if oscTimer.istime():
-                    #liblo.send(self.target, "/masssuperlooper", "on", position, length)
+                    liblo.send(self.target, "/masssuperlooper", "on", position, length)
                     print("/masssuperlooper on pos:{} len:{}".format(position, length))
                 # Timed print function
                 if printTimer.istime():
                     startB = time.time()
                     output = ' level:{}'.format(level) 
                     output += ' accesspoints:{}'.format(accesspoints) 
+                    output += ' position:{}'.format(length)
+                    output += ' length:{}'.format(length)
                     print(output)
             
     def calc_pitch(self, level):
@@ -124,14 +137,13 @@ class Wormery:
     def worm_analog(self):
         # Setup an asysnc timer
         Atimer = AsyncTimer(5) # Trigger every n seconds
-        Asmoother = Smoother(10)
-        Aranger = Ranger([0.0,1.0], [0.2, 10.0]) 
+        Asmoother = Smoother(100)
+        #Aranger = Ranger([0.0,1.0], [0.2, 5.0]) 
         oldsmoothval = -1;
         move = 'off';
         # Start the loop and check for values
         while True:        
-            # pitch = (-1*math.sin(step)*(top-bottom))+(top-bottom) # Sine wave used for testing
-            # step += 0.2                                           #   |---Used for testing
+            # pitch = (-1*math.sin(step)*(top-bottom))+(top-bottom) #Sine wave step += 0.2 # Used for testing
             # Read the analog input and count how many times
             b = round(ADC.read("AIN1"),2) # returns a value between 0 and 1.0
             smoothvalue = Asmoother.grab(b)
@@ -140,15 +152,13 @@ class Wormery:
                 if smoothvalue > oldsmoothval: move='up'
                 if smoothvalue < oldsmoothval: move='down'
                 if smoothvalue == oldsmoothval: move='off'
-                inc = 0.4
-                speed = 0.3
-                mmax = 19.5
-                mmin = 0.5
-                chan = 2
+                inc = 0.3
+                speed = 0.2
+                mmax = 10.5 # maximum pitch
+                mmin = 0.5  # minimim pitch
                 liblo.send(self.target, "/masssuperpitch", move, inc, speed, mmax, mmin)
                 oldsmoothval = smoothvalue
-                print("smooth:{} oldsmooth:{} OSC:/superpitch chan:{} move:{} inc:{} speed:{} mmax:{} mmin:{}".format(smoothvalue, oldsmoothval, chan, move, inc, speed, mmax, mmin))
-            time.sleep(0.1)
+                print("smooth:{} oldsmooth:{} OSC:/superpitch move:{} inc:{} speed:{} mmax:{} mmin:{}".format(smoothvalue, oldsmoothval, move, inc, speed, mmax, mmin))
 
     # UTILITIES ===========
     def grab_signal_level(self, line):
@@ -199,9 +209,10 @@ class Ranger:
         self._maxB = rangeB[1]
         self._minB = rangeB[0]
     def convert(self, valueA):
-        # protect for the case where the old range goes higher or lower than max or min
-        if (valueA < self._minB): return self._minB
-        if (valueA > self._maxA): return self._maxA 
+        # Where the old range goes higher or lower than max or min
+        # Be sure reset the max/min
+        if (valueA < self._minA): self._minA = valueA
+        if (valueA > self._maxA): self._maxA = valueA 
         rangeA = (self._maxA-self._minA)
         rangeB = (self._maxB-self._minB)  
         valueB = (((valueA-self._minA)*rangeB)/rangeA)+self._minB

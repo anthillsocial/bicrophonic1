@@ -74,13 +74,13 @@ local themap=utils.load_json(mapfile)
 map.test_map(themap, logfile)
 
 -- start the audio player
-os.execute(audio_player_bin.." &") 
-utils.log(logfile, "openframeworks audio player started")
-posix.sleep(4)
-os.execute("send_osc 12345 /load 10 startup.wav")
-os.execute("send_osc 12345 /play 10")
-utils.log(logfile, "send_osc 12345 /load 10 startup.wav")
-utils.log(logfile, "send_osc 12345 /play 10")
+--os.execute(audio_player_bin.." &") 
+--utils.log(logfile, "openframeworks audio player started")
+--posix.sleep(4)
+--os.execute("send_osc 12345 /load 10 startup.wav")
+--os.execute("send_osc 12345 /play 10")
+--utils.log(logfile, "send_osc 12345 /load 10 startup.wav")
+--utils.log(logfile, "send_osc 12345 /play 10")
 
 -- Shall we grab fake or real gps?
 if fake_gps == 'false' then
