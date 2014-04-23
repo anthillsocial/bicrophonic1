@@ -102,7 +102,7 @@ class Wormery:
         if self.availmemory(myfile, channel):
             liblo.send(self.target, "/load", channel, myfile)
             liblo.send(self.target, command, channel)
-            liblo.send(self.target, "/masschange", channel, 1)
+            liblo.send(self.target, "/masschange", channel, change)
     
     # swap sound
     def swapsound(self):
@@ -166,10 +166,10 @@ class Wormery:
                     # Save the level of a all wifi essid's beginng in 'sonic-'
                     if 'sonic' in line:
                         if myESSID not in line:
+                            #self.log('FoundOtherSonicWifi:{}'.format(line))
                             newlevel = self.grab_signal_level(resp[i-2])
-                            self.log('FoundOtherSonicWifi:{} Level:{}'.format(line, newlevel))
-                            #if newlevel > self.wifivars['ssidlevel']:
-                            self.wifivars['ssidlevel'] = newlevel
+                            if newlevel > self.wifivars['ssidlevel']:
+                                self.wifivars['ssidlevel'] = newlevel
                         else:
                             #self.log('FoundMySonicWifi:{}'.format(line))
                             pass
@@ -179,15 +179,16 @@ class Wormery:
                 self.wifivars['startosc'] = True
             except Exception as e:
                 self.log('no wifi found with:'.format(scanwifi))
-            time.sleep(1)
+            time.sleep(3)
     
     # What OSC messages should we send for the worm wifi?
     def worm_wifi_osc(self):
-        oscTimer = AsyncTimer(2) # Trigger every n seconds
+        oscTimer = AsyncTimer(4) # Trigger every n seconds
         swapSoundTimer = AsyncTimer(30) # Trigger every n seconds
+        printTimer = AsyncTimer(2) # Trigger every n seconds
         posRange = Ranger([0,5], [0.0,1.0])
         lenRange = Ranger([0,5], [0.0,10.0])
-        levelRange = Ranger([0,100], [0.3,20.0])
+        levelRange = Ranger([0,100], [0.1,100.0])
         levelSmoothed = Smoother(4)
         while True:
             if self.wifivars['startosc']: 
@@ -196,44 +197,37 @@ class Wormery:
                 accesspoints = self.wifivars['naccesspoints']
                 # Calculate variables for the superlooper
                 position = posRange.convert(accesspoints)
-                rlevel = levelRange.convert(level)
-                #length = 100.0-length
-                #if length < 0.1: length=0.1
+                length = levelRange.convert(level)
+                length = 100.0-length
+                if length < 0.1: length=0.1
                 # prep debug output
                 output = ' level:{}'.format(level) 
-                output += ' rangedlevel:{}'.format(rlevel)
                 output += ' accesspoints:{}'.format(accesspoints) 
                 output += ' position:{}'.format(position)
-                #output += ' length:{}'.format(length)
+                output += ' length:{}'.format(length)
                 # Send some OSC at a certain interval
                 if oscTimer.istime():
                     # Set the loop when nearby
                     #liblo.send(self.target, "/masssuperlooper", "on", position, length)
                     #self.log("/masssuperlooper on pos:{} len:{} | {}".format(position, length, output))
                     #self.log("/masssuperlooper on pos:{} len:{} | {}".format(position, length, output))
-                    
-                    # Staright pitch
-                    newlevel = round(levelRange.convert(100-level), 1)
-                    liblo.send(self.target, "/masspitch", newlevel)
-                    self.log("/masspitch {} | {}".format(newlevel, output))
-                    
                     # Set the pitch when nearby
-                    #inc = 0.3
-                    #speed = 0.2
-                    #mmax = 10.5 # maximum pitch
-                    #mmin = 0.4  # minimim pitch
-                    #if level >= 70: 
-                    #    liblo.send(self.target, "/masssuperpitch", 'up', inc, speed, mmax, mmin)
-                    #if level <= 69: 
-                    #    liblo.send(self.target, "/masssuperpitch", 'down', inc, speed, mmax, mmin)
-                    #if level <= 20: 
-                    #    liblo.send(self.target, "/masssuperpitch", 'off', inc, speed, mmax, mmin)
-                    #    liblo.send(self.target, "/massspitch", 1.0)
+                    inc = 0.3
+                    speed = 0.2
+                    mmax = 10.5 # maximum pitch
+                    mmin = 0.4  # minimim pitch
+                    if level >= 70: 
+                        liblo.send(self.target, "/masssuperpitch", 'up', inc, speed, mmax, mmin)
+                    if level <= 69: 
+                        liblo.send(self.target, "/masssuperpitch", 'down', inc, speed, mmax, mmin)
+                    if level <= 20: 
+                        liblo.send(self.target, "/masssuperpitch", 'off', inc, speed, mmax, mmin)
+                        liblo.send(self.target, "/massspitch", 'off', 1.0)
                 # If we are in random mode then regularly swap the sound
                 if self.mode == 'randomm':
                     if swapSoundTimer.istime():
                         self.swapsound()
-            #time.sleep(1)
+            time.sleep(1)
             
     def calc_pitch(self, level):
         pitch = level*0.01
