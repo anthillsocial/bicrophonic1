@@ -36,6 +36,8 @@ CONFIG=utils.load_json("../config.json")
 local logfile = CONFIG.logfile
 local gpsdev  = CONFIG.gps_device
 local mapfile = CONFIG.mapfile
+local fake_gps = CONFIG.fake_gps
+local fake_gps_log = CONFIG.fake_gps_log
 local audio_player_bin = CONFIG.audio_player_bin
 local module  = "bicrophonic1"
 
@@ -48,6 +50,7 @@ function isfile(file)
     end
     return true
 end
+
 -- check that the map file exists
 local files = {gpsdev,mapfile}
 if isfile(mapfile)==false then
@@ -67,19 +70,31 @@ map.test_map(themap, logfile)
 
 -- start the audio player
 os.execute(audio_player_bin.." &") 
-utils.log(logfile, "audio player started")
--- posix.sleep(139)
+utils.log(logfile, "openframeworks audio player started")
+posix.sleep(2)
 
--- start the gps daemon
-os.execute(scriptpath.."../lib/gpsd_lua &")
-utils.log(logfile, "gpsd_lua started")
-utils.log(logfile, "waiting for gpsd")
-posix.sleep(4)
-
---- connect to the gps pipe
-utils.log(logfile, "attempting gps pipe connection") 
-local file = io.open("/tmp/swamp_gps","r")
-utils.log(logfile, "connected to gps pipe")
+-- Shall we grab fake or real gps?
+if fake_gps == 'false' then
+    -- start the gps daemon
+    os.execute(scriptpath.."../lib/gpsd_lua &")
+    utils.log(logfile, "gpsd_lua started")
+    utils.log(logfile, "waiting for gpsd")
+    posix.sleep(4)
+    --- connect to the gps pipe
+    utils.log(logfile, "attempting gps pipe connection") 
+    local file = io.open("/tmp/swamp_gps","r")
+    utils.log(logfile, "connected to gps pipe")
+else
+    -- first check fake gps file exists
+    if isfile(fake_gps_log)==false then
+        utils.log(logfile, module..": Error: "..mapfile.." does not exist")
+        utils.log(logfile, module..": Exiting") os.exit(1)
+    end
+    --- now lets connect to a fake gps trail
+    utils.log(logfile, "grabbing fake gps: "..fake_gps_log)
+    file = io.open(fake_gps_log, "r")
+    io.input(file)
+end
 
 --------------------
 
@@ -99,11 +114,18 @@ utils.log(logfile, "starting loop")
 local t=0.5
 
 while true do
-    local line = file:read()
+    local line = nil
+    if fake_gps == 'true' then
+        line = io.read()
+        line = string.sub(line, 26)
+    else
+        line = file:read()
+    end
+
     -- if we have a new gps fix
     local period_seconds=60*10
     t=math.sin((os.time()*180/period_seconds)*3.141/180)*0.5+0.5
-    print("------------------ "..t)
+    --print("------------------ "..t)
 
     if line then
         local lat, lng = string.match(line, "^(.-)%s(.-)$")
