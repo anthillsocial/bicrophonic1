@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import liblo, sys, time, math, threading, subprocess, random
+import liblo, sys, os, time, math, threading, subprocess, random, json
 import Adafruit_BBIO.ADC as ADC
 
 # Start the app with:
@@ -13,6 +13,20 @@ class Wormery:
 
     # Initialise the object
     def __init__(self):
+        # Load the config file
+        self.loadedmemory = 0
+        self.maxmemory = 55
+        self.mode = 'mode'
+        self.nfiles = 3
+        self.directory = "/home/sonic/sdcard/brussels/sound/"
+        try:
+            json_data=open('/home/sonic/sdcard/config.json')
+            data = json.load(json_data)
+            self.mode = data["mode"]
+            self.directory = data['audio_path']
+            json_data.close()
+        except:
+            pass
         # Setup the OSC object so we can send messages
         try:
             self.target = liblo.Address(12345)
@@ -20,7 +34,8 @@ class Wormery:
             print(err)
             sys.exit()
         # Load some test sounds
-        if 'test' in sys.argv:
+        if 'test' in sys.argv or self.mode=='random':
+            print('Loading random sounds')
             self.load_test_sounds()
         # And setup the analog read
         ADC.setup()
@@ -28,30 +43,66 @@ class Wormery:
         if 'wifi' in sys.argv or sys.argv[0]== '' :
             threading.Thread(target=self.worm_wifi).start()
             threading.Thread(target=self.worm_wifi_osc).start()
+            print('Start wifi')
         if 'analog' in sys.argv or sys.argv[0] == '' :
             threading.Thread(target=self.worm_analog).start()
-        
+            print('Start analog')
+    
     # Just load some test sounds for us to play with
     def load_test_sounds(self):
         # Grab a list of filenames
         print("========worms in test mode=======")
         import glob
-        directory = "/home/sonic/sdcard/brussels/sound/"
-        liblo.send(self.target, "/setaudiodir", directory)
-        files = glob.glob("{}*.wav".format(directory)) 
-        print(files)
-        files.remove(directory+"startup.wav")
+        liblo.send(self.target, "/setaudiodir", self.directory)
+        self.files = glob.glob("{}*.wav".format(self.directory)) 
+        try:
+            files.remove(directory+"startup.wav")
+        except:
+            pass
         # Now load an play some files
-        self.playrandomfile("/loopplay", 0, directory, files)
-        self.playrandomfile("/loopplay", 1, directory, files)
+        canchange = 0
+        i = 1
+        self.filesizes = [0]*(self.nfiles+1)
+        while i <= self.nfiles:
+            canchange = not canchange
+            self.playrandomfile("/loopplay", i, canchange)
+            i = i+1
 
-    def playrandomfile(self, command, channel, directory, files):
-        rand = random.randint(0, len(files)-1)
-        myfile = files[rand].replace(directory, '')
-        liblo.send(self.target, "/load", channel, myfile)
-        liblo.send(self.target, command, channel)
-        liblo.send(self.target, "/masschange", channel, 1)
+    def playrandomfile(self, command, channel, canchange):
+        if canchange: change=1
+        else: change=0
+        rand = random.randint(0, len(self.files)-1)
+        myfile = self.files[rand].replace(self.directory, '')
+        # Only load if we have enough memory
+        if self.availmemory(myfile, channel):
+            liblo.send(self.target, "/load", channel, myfile)
+            liblo.send(self.target, command, channel)
+            liblo.send(self.target, "/masschange", channel, change)
     
+    # swap sound
+    def swapsound(self):
+        channel = random.randint(0, self.nfiles)
+        self.loadedmemory=self.loadedmemory-self.filesizes[channel]
+        liblo.send(self.target, "/unload", channel)
+        time.sleep(1)
+        canchange = random.randint(0, 1)
+        self.playrandomfile("/loopplay", channel, canchange)
+
+    # Available memory
+    def availmemory(self, myfile, channel):
+        path = self.directory+myfile
+        filesize =int( os.path.getsize(path)/1024/1024)
+        free = self.maxmemory-self.loadedmemory
+        print('Filesize:{}mb Loaded:{}mb Free:{} Path:{}'.format(filesize, self.loadedmemory, free, path) )
+        if filesize > free:
+            return False
+        else:
+            print(channel)
+            print(self.filesizes)
+            self.filesizes[channel] = filesize
+            self.loadedmemory=self.loadedmemory+filesize
+            return True
+
     # Thread to monitor wifi signals
     def worm_wifi(self):
         # Setup base vars
@@ -96,7 +147,8 @@ class Wormery:
     
     # What OSC messages should we send for the worm wifi?
     def worm_wifi_osc(self):
-        oscTimer = AsyncTimer(5) # Trigger every n seconds
+        oscTimer = AsyncTimer(10) # Trigger every n seconds
+        swapSoundTimer = AsyncTimer(30) # Trigger every n seconds
         printTimer = AsyncTimer(2) # Trigger every n seconds
         posRange = Ranger([0,5], [0.0,1.0])
         lenRange = Ranger([0,5], [0.0,10.0])
@@ -113,14 +165,19 @@ class Wormery:
                 if oscTimer.istime():
                     liblo.send(self.target, "/masssuperlooper", "on", position, length)
                     print("/masssuperlooper on pos:{} len:{}".format(position, length))
+                # If we are in random mode then regularly swap the sound
+                if self.mode == 'random':
+                    if swapSoundTimer.istime():
+                        self.swapsound()
                 # Timed print function
                 if printTimer.istime():
                     startB = time.time()
                     output = ' level:{}'.format(level) 
                     output += ' accesspoints:{}'.format(accesspoints) 
-                    output += ' position:{}'.format(length)
+                    output += ' position:{}'.format(position)
                     output += ' length:{}'.format(length)
                     print(output)
+            time.sleep(1)
             
     def calc_pitch(self, level):
         pitch = level*0.01

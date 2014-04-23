@@ -23,7 +23,19 @@ fi
 #./stop > /dev/null                  
 
 # Check if we need to mount the SDcard Note: Could be manged by fstab...
-[ -f /home/sonic/sdcard/config.json  ] || mount -t vfat -o defaults,rw,umask=0 /dev/mmcblk0p1 /home/sonic/sdcard
+if [ -f /home/sonic/sdcard/config.json ]; then
+    # File exists
+    echo "Found /home/sonic/sdcard/config.json"
+else
+    # File doesn't exist
+    mount -t vfat -o defaults,rw,umask=0 /dev/mmcblk0p1 /home/sonic/sdcard
+fi
+
+# Which mode should we startup in?
+MODE=$(grep '"random"' /home/sonic/sdcard/config.json)
+if [ ! -z "$MODE" ];  then
+    MODE="random"
+fi
 
 # Make sure we can write to the SDcard
 chmod 777 /home/sonic/sdcard -R
@@ -34,22 +46,28 @@ amixer -c 0 set PCM 100% > /dev/null  # Set initital audio volume to full
 
 # Start the Audio Engine
 /home/sonic/SonicBikeAudioEngine/bin/SonicBikeAudioEngine & > /dev/null
-sleep 2
+sleep 1
 
 # And send a startup sound
 send_osc 12345 /load 0 startup.wav
 send_osc 12345 /play 0
+sleep 2
+send_osc 12345 /unload 0
 
 # Check if we should just load the worms script: sudo ./start test
 args=$@
 if [ $# -ne 0 ]; then
     # Found an argument so lets start a test
-    ./worms test & > /dev/null
+    ./worms test wifi & > /dev/null
 else
     # otherwise start up as normal    
     # Start the map reading and gps application
-    ./bicrophonic1 & > /dev/null          # Start the app
-
+    if [ $MODE != "random" ]; then
+        ./bicrophonic1 & > /dev/null          # Start the app
+        echo "load Normal GPS system"
+    else
+        echo "Load Random Player"
+    fi
     # Release the worms! (scan for wifi and read analog input)
     ./worms wifi & > /dev/null
 fi
