@@ -20,7 +20,9 @@ local scriptpath=string.match(arg[0], '^.*/')
 
 package.path = package.path..";"..scriptpath.."/?.lua;"..scriptpath.."/../lib/?.lua"
 
+require 'std'
 require 'engine'
+require 'audioc'
 require 'gps'
 require 'posix'
 require 'poly'
@@ -41,7 +43,7 @@ local fake_gps_log = CONFIG.fake_gps_log
 local audio_player_bin = CONFIG.audio_player_bin
 local module  = "bicrophonic1"
 
-utils.log(logfile, "------------- started swamp -----------------")
+utils.log(logfile, "------------- started bicrophonic1 -----------------")
 
 function isfile(file)
     local g=io.open(file, "r")
@@ -73,19 +75,20 @@ os.execute(audio_player_bin.." &")
 utils.log(logfile, "openframeworks audio player started")
 posix.sleep(2)
 
+-- start the gps daemon 
+os.execute(scriptpath.."../lib/gpsd_lua &")
+utils.log(logfile, "gpsd_lua started")
+utils.log(logfile, "waiting for gpsd")
+posix.sleep(4)
+
 -- Shall we grab fake or real gps?
 if fake_gps == 'false' then
-    -- start the gps daemon
-    os.execute(scriptpath.."../lib/gpsd_lua &")
-    utils.log(logfile, "gpsd_lua started")
-    utils.log(logfile, "waiting for gpsd")
-    posix.sleep(4)
     --- connect to the gps pipe
     utils.log(logfile, "attempting gps pipe connection") 
     local file = io.open("/tmp/swamp_gps","r")
     utils.log(logfile, "connected to gps pipe")
 else
-    -- first check fake gps file exists
+    -- Check fake gps file exists
     if isfile(fake_gps_log)==false then
         utils.log(logfile, module..": Error: "..mapfile.." does not exist")
         utils.log(logfile, module..": Exiting") os.exit(1)
@@ -117,11 +120,12 @@ while true do
     local line = nil
     if fake_gps == 'true' then
         line = io.read()
+        --print(line)
         line = string.sub(line, 26)
     else
         line = file:read()
     end
-
+    
     -- if we have a new gps fix
     local period_seconds=60*10
     t=math.sin((os.time()*180/period_seconds)*3.141/180)*0.5+0.5
@@ -133,7 +137,6 @@ while true do
         if tonumber(lat) and tonumber(lng) then
             engine.gpslog(lat, lng)
         local pos={lat=lat,lng=lng}
-        -- Whats this?
 	    sample_state,sample_events=map.get_sample_events(pos,sample_state,themap,t)
 	    state,events=map.get_events(pos,state,themap,t)
         pos_state=engine.update_pos_state(pos,pos_state)
