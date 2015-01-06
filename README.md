@@ -1,7 +1,20 @@
-bicrophonic1
+Bicrophonic1
 ============
 
 Platform to play audio attached geographical locations and the movements of a bike http://sonicbikes.net
+
+Roadmap
+-----------------
+
+- Start audio engine.
+- Read a config.
+- Play soundfiles from SD card. 
+- Log output. 
+- Grab GPS coordinates.
+- Detect if current location is within a polygon.
+- Detect direction of travel.
+- Pre-load sounds.
+- Manage audio memory.
 
 Map control
 -----------------
