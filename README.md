@@ -7,7 +7,7 @@ Map control
 -----------------
 A JSON file controls how and where sounds are played. The paramterers are:
 
-- Sound filename
+- Sound filename (the title of the zone)
 - Direction parameter: (Multiple select for NE etc.) 
   - North (Sample is played when moving north) 
   - South (Sample is played when moving south) 
