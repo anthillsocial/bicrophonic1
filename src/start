@@ -12,9 +12,6 @@ fi
 # Cleanup any open processes
 ./stop > /dev/null                  
 
-# Setup wifi if we can 
-ifup wlan1
-
 # Mount the sd card Note: Now manged by fstab...
 #SD=$(ls ~/sdcard/sound | grep "No such file or directory")
 #if [ -z "$SD" ]; then

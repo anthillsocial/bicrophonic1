@@ -6,11 +6,11 @@ import Adafruit_BBIO.ADC as ADC
 class Wormery:
 
     # Initialise the object
-    def __init__(self, interface, ssid):
+    def __init__(self):
         # Setup vars
         self.wifivars = {
-            'ssid':ssid, 
-            'interface':interface, 
+            'ssid':'shark', 
+            'interfaces':['wlan0', 'wlan1'], 
             'ssidlevel':0,
             'smoothed_ssidlevel':0,
             'naccesspoints':0,
@@ -51,8 +51,12 @@ class Wormery:
     
     # Thread to monitor wifi signals
     def worm_wifi(self):
-        # Command to grab all listed signals in the area
-        scanwifi = 'sudo iwlist {} scan'.format(self.wifivars['interface'])
+        # Lets check whcih interface is up
+        try:
+            scanme = subprocess.check_output("ip a | grep wlan0", shell=True).decode("utf-8")
+            interface = 'wlan0'
+        except:
+            interface = 'wlan1'
         # Create an array for smoothing
         smoothn = 5
         smoother = [0]*smoothn
@@ -61,6 +65,7 @@ class Wormery:
         while True:
             # Grab all the signals
             try:
+                scanwifi = 'sudo iwlist {} scan'.format(interface[interface])
                 resp = subprocess.check_output(scanwifi, shell=True).decode("utf-8").split("\n")
                 keyword = 'Signal' 
                 i=0
@@ -129,7 +134,7 @@ class Wormery:
                     length=0.2
                 liblo.send(self.target, "/position", 2, position)
                 liblo.send(self.target, "/pitch", 2, pitch)
-                print('{}Level:{} Smoothed:{} length:{} position:{} pitch:{} segment:{} range:{}, max:{} min:{} newlevel:{}'.format(self.wifivars['ssid'], self.wifivars['ssidlevel'], self.wifivars['smoothed_ssidlevel'], length, position, pitch, segment, myrange, maxlevel, minlevel, newlevel))
+                print('nssids:{} ssid:{} Level:{} Smoothed:{} length:{} position:{} pitch:{} segment:{} range:{}, max:{} min:{} newlevel:{}'.format(self.wifivars['naccesspoints'], self.wifivars['ssid'], self.wifivars['ssidlevel'], self.wifivars['smoothed_ssidlevel'], length, position, pitch, segment, myrange, maxlevel, minlevel, newlevel))
             time.sleep(length)
 
     # What OSC messageds should we send for the worm wifi?
@@ -195,4 +200,4 @@ class Wormery:
         return int(quality)
 
 # Start the app
-Wormery('wlan1', 'shark')
+Wormery()
