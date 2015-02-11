@@ -57,6 +57,7 @@ class Wormery:
             interface = 'wlan0'
         except:
             interface = 'wlan1'
+        scanwifi = 'sudo iwlist {} scan'.format(interface)
         # Create an array for smoothing
         smoothn = 5
         smoother = [0]*smoothn
@@ -65,7 +66,6 @@ class Wormery:
         while True:
             # Grab all the signals
             try:
-                scanwifi = 'sudo iwlist {} scan'.format(interface[interface])
                 resp = subprocess.check_output(scanwifi, shell=True).decode("utf-8").split("\n")
                 keyword = 'Signal' 
                 i=0
@@ -82,7 +82,8 @@ class Wormery:
                 self.wifivars['averagelevel'] = sum(levels) / len(levels)
                 self.wifivars['naccesspoints'] = len(levels)
             except Exception as e:
-                pass
+                print('no wifi found with:'.format(scanwifi))
+                time.sleep(0.5)
             # And smooth the values
             smoother[s] = self.wifivars['ssidlevel']
             self.wifivars['smoothed_ssidlevel'] = sum(smoother)/len(smoother)
@@ -91,6 +92,7 @@ class Wormery:
             else:
                 self.wifivars['startosc'] = True
                 s=0
+            time.sleep(0.2)
             #self.worm_wifi_osc(averagelevel, ssidlevel)
     
     # Thread to determine loop position
