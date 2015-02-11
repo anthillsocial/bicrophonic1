@@ -35,11 +35,11 @@ class Wormery:
     # Just load some test sounds for us to play with
     def load_test_sounds(self):
         liblo.send(self.target, "/load", 0, "startup.wav")
-        liblo.send(self.target, "/load", 1, "SerenadeStrHi.wav")
+        #liblo.send(self.target, "/load", 1, "SerenadeStrHi.wav")
         liblo.send(self.target, "/load", 2, "MeesterMuink1.wav")
-        liblo.send(self.target, "/load", 3, "9DomskAnimal.wav")
+        #liblo.send(self.target, "/load", 3, "9DomskAnimal.wav")
         liblo.send(self.target, "/play", 0)
-        time.sleep(2)
+        time.sleep(4)
         liblo.send(self.target, "/unload", 0)
         liblo.send(self.target, "/loopplay", 1)
         liblo.send(self.target, "/loopplay", 2)
@@ -127,8 +127,8 @@ class Wormery:
                 elif newlevel <= segment*6: 
                     pitch=20.0
                     length=0.2
-                liblo.send(self.target, "/position", 0, position)
-                liblo.send(self.target, "/pitch", 0, pitch)
+                liblo.send(self.target, "/position", 2, position)
+                liblo.send(self.target, "/pitch", 2, pitch)
                 print('{}Level:{} Smoothed:{} length:{} position:{} pitch:{} segment:{} range:{}, max:{} min:{} newlevel:{}'.format(self.wifivars['ssid'], self.wifivars['ssidlevel'], self.wifivars['smoothed_ssidlevel'], length, position, pitch, segment, myrange, maxlevel, minlevel, newlevel))
             time.sleep(length)
 

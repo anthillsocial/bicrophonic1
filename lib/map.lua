@@ -203,7 +203,7 @@ end
 function test_map(map, logfile)
     for layer_index,layer in pairs(map) do
     	for zone_index,zone in pairs(layer.zones) do
-	    print("checking: "..zone.name)
+	    --print("checking: "..zone.name)
             local file=CONFIG.audio_path..zone.name..".wav";
 	    -- utils.table_print(zone)
 
@@ -216,10 +216,11 @@ function test_map(map, logfile)
 		   print("ERROR WRONG VERTEX COUNT, TELL DAVE")
 		end
 	    end
-
-	    if posix.stat(file) then
-                print("map check found: "..zone.name)
-            else
+        local filestat = posix.stat(file)
+	    if filestat then
+	            local size = std.round(filestat.size/1024/1024, 1)
+                print("map check found: "..zone.name..' filesize: '..size..'mb')
+                else
                 msg = "ERROR - map check failed to find: "..file
                 print(msg)
                 utils.log(logfile, msg)

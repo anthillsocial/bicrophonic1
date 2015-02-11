@@ -1,0 +1,23 @@
+{
+"gps_device":"/dev/ttyUSB0",
+"gps_baud":"4800",
+
+"audio_player_bin":"/home/sonic/ofv0.8.4armv7/apps/myApps/SonicBikeAudioEngine/bin/SonicBikeAudioEngine",
+"audio_startup":"startup.wav",
+"audio_channels": 100,
+
+"audio_log":"/home/sonic/sdcard/brusselssound/logs/audio.log",
+"logfile":"/home/sonic/sdcard/brusselssound/logs/system.log",
+"gpslog":"/home/sonic/sdcard/brusselssound/logs/gps.log",
+
+"direction_track_time":15,
+
+"debug":"true",
+"fake_gps":"true",
+"fake_speed":1,
+
+"fake_gps_log":"/home/sonic/sdcard/brusselssound/fakegps.log", 
+"audio_path": "/home/sonic/sdcard/brusselssound/sound",
+"mapfile":"/home/sonic/sdcard/brusselssound/brusselsmap.json"
+
+}

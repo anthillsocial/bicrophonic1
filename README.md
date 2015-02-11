@@ -31,8 +31,35 @@ A JSON file controls how and where sounds are played. The paramterers are:
   - Ghost (two polygons are drawn and the zone oscillates between them)
   - One shot (Sample will play to the end whatever happens)
 
+Outline of The software
+=============
 
-Setup
+# 'worms'
+The 'worms' script has been written with python and currently: 
+
+- Scans for wifi signals and sends OSC messages based on what it finds.
+- Reads analog input and sends OSC messages based on what it finds.
+
+## Install
+First we need to install adafruit's beaglebone-io-python libarary. This provides fast access to the BBB's analog pins.
+
+    $ git clone THIS REPOSITORY
+    $ ntpdate -b -s -u pool.ntp.org
+    $ git clone git://github.com/adafruit/adafruit-beaglebone-io-python.git
+    $ cd adafruit-beaglebone-io-python/
+    $ sudo python ./setup.py install 
+
+## Wiring
+
+    Pin34<-->10kesitor<-->switch<-->Pin32
+                        |            
+                        --->Pin40   
+
+## Then the script can be test on its own
+
+    $ sudo ./worms
+                     
+WHOLE BBB Setup
 ==================
 
 The SD Card

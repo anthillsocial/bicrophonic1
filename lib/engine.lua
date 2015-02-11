@@ -22,7 +22,7 @@ require 'poly'
 require 'map'
 require 'direction'
 require 'random'
---require 'audioc'
+require 'audioc'
 require 'socket'
 
 ----------------------------------------------------------------
@@ -183,7 +183,7 @@ function play_events(events,pos_state)
         for name,dir in pairs(panned_samples) do
             local pan=direction.pan_from(pos_state.dir,dir)
             print("shifting "..name.." to "..pan)
-	   -- audioc.shift(name,pan)
+	        audioc.shift(name,pan)
         end
     end
 
@@ -225,12 +225,12 @@ function play_events(events,pos_state)
 	           dispatch_override(event,pos_state,override)
 	    	else
 		    -- default behaviour
-    	            if event.type=="entered-zone" then
+    	    if event.type=="entered-zone" then
 		       if dir=="centre" then ----- normal -------
     		       	   if loop=="no" then
-                              -- audioc.play(name)
+                               audioc.play(name)
 		           else
-			       --audioc.loop(name)
+			         audioc.loop(name)
                            end
                        else ------- directional ---------------
                            -- add to panned samples so we can update it later
@@ -238,9 +238,9 @@ function play_events(events,pos_state)
 			   print("added panned "..name.." "..dir)
                            local pan=direction.pan_from(pos_state.dir,dir)
     		           if loop=="no" then
-                              -- audioc.play(name,pan)
+                               audioc.play(name,pan)
 			   else
-                              -- audioc.loop(name,pan)
+                               audioc.loop(name,pan)
 	                   end
                        end
                     end
@@ -252,7 +252,7 @@ function play_events(events,pos_state)
 	            end
 
                 if one_shot_samples[name]~="yes" then
-                   -- audioc.fadeout(name)
+                    audioc.fadeout(name)
                 end
                 end
 	    end
@@ -278,9 +278,8 @@ function update_pos_state(pos,state)
                        lng=pos.lng-state.pos.lng}
         end
         state.pos = pos
-	state.new_direction=true
-
-	log("speed is "..state.speed.."km/h"..
+	    state.new_direction=true
+	    log("speed is "..state.speed.."km/h"..
             " direction is "..direction.resolve(poly.angle(state.dir)))
     end
     return state
@@ -291,21 +290,21 @@ end
 function load_events(events,pos_state)
     for k,layer in pairs(events) do
         for k,event in pairs(layer) do
-	    engine.log("load event: "..event.type.." "..event.zone_name.." in "..event.layer_name)
+	        engine.log("load event: "..event.type.." "..event.zone_name.." in "..event.layer_name)
 
-	    -- zone name consists of:
+	        -- zone name consists of:
             -- <name>_<loop>_<direction>_<ghost>
-	    local tokens=std.split(event.zone_name,"_")
+	        local tokens=std.split(event.zone_name,"_")
 
             -- defaults
-	    local name=tokens[1]
+	        local name=tokens[1]
 
             -- default behaviour
     	    if event.type=="entered-zone" then
-               -- audioc.load(name)
+                 audioc.load(name)
             end
-	    if event.type=="left-zone" then
-               -- audioc.unload(name)
+	        if event.type=="left-zone" then
+                 audioc.unload(name)
             end
         end
     end

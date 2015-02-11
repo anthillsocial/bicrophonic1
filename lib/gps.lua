@@ -113,7 +113,7 @@ function loop(device, logfile)
                 wgs_to_dec(lat, sign1, lon, sign2)
             else
                 msg = "No GPS lock"
-	        print(msg)
+	       -- print(msg)
                 if not logged_nolock then
 	          utils.log(logfile, msg)
                   logged_nolock = true

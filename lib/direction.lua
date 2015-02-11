@@ -18,7 +18,7 @@ package.path = package.path..";./?.lua;../lib/?.lua"
 
 module("direction", package.seeall)
 
---require 'std'
+require 'std'
 require 'utils'
 require 'poly'
 
@@ -79,10 +79,11 @@ end
 
 
 function test()
+    print(resolve(-90))
    local d={lat=1, lng=0}
    print("pan_from n/w=left: "..pan_from(d,"w"))
    local d2={lat=0, lng=1}
    print("dot(1,0 0,1)="..poly.dot(d,d2))
 end
 
---test()
+test()
