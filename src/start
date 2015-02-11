@@ -9,12 +9,29 @@ if [ $LUID -ne 0 ]; then
     exit 1
 fi
 
-# Mount the sd card TODO: should move this to fstab...
-mount -L biophonic1 -t vfat /home/sonic/sdcard -o umask=000
+# Cleanup any open processes
+./stop > /dev/null                  
 
-# Now sort the rest of the process
-cd /home/sonic/bicrophonic1/src     # Move to our dir so relative paths work
-./stop                              # Cleanup any open processes
-sleep 1                             # Lets give the audio card time to startup
-amixer -c 0 set PCM 100%            # Set initital audio volume
-./bicrophonic1 &                    # Start the app
+# Setup wifi if we can 
+ifup wlan1
+
+# Mount the sd card Note: Now manged by fstab...
+#SD=$(ls ~/sdcard/sound | grep "No such file or directory")
+#if [ -z "$SD" ]; then
+#mount -L biophonic1 -t vfat /home/sonic/sdcard -o umask=000 > /dev/null
+#fi
+
+# Make sure we can write to the SD card
+chmod 777 /home/sonic/sdcard -R
+
+# Start the map reading and gps application
+cd /home/sonic/bicrophonic1/src       # Move to our dir so relative paths work
+sleep 5                               # Lets give the audio card time to startup
+amixer -c 0 set PCM 100% > /dev/null  # Set initital audio volume
+#./bicrophonic1 & > /dev/null         # Start the app
+
+# Start the Audio Engine
+/home/sonic/SonicBikeAudioEngine/bin/SonicBikeAudioEngine & > /dev/null
+
+# Release the worms! (scan for wifi and read analog input)
+./worms #& > /dev/null

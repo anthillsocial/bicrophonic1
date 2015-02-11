@@ -1,0 +1,198 @@
+#!/usr/bin/env python
+import liblo, sys, time, math, threading, subprocess, random
+import Adafruit_BBIO.ADC as ADC
+
+# The application class
+class Wormery:
+
+    # Initialise the object
+    def __init__(self, interface, ssid):
+        # Setup vars
+        self.wifivars = {
+            'ssid':ssid, 
+            'interface':interface, 
+            'ssidlevel':0,
+            'smoothed_ssidlevel':0,
+            'naccesspoints':0,
+            'averagelevel':0,
+            'startosc':False
+        }
+        # Setup the OSC object so we can send messages
+        try:
+            self.target = liblo.Address(12345)
+        except liblo.AddressError as err:
+            print(err)
+            sys.exit()
+        # Load some test sounds
+        self.load_test_sounds()
+        # And setup the analog read
+        ADC.setup()
+        # Release the worms! Start some threads
+        threading.Thread(target=self.worm_wifi).start()
+        threading.Thread(target=self.worm_wifi_osc_trigger).start()
+        #threading.Thread(target=self.worm_analog).start()
+        
+    # Just load some test sounds for us to play with
+    def load_test_sounds(self):
+        liblo.send(self.target, "/load", 0, "startup.wav")
+        liblo.send(self.target, "/load", 1, "SerenadeStrHi.wav")
+        liblo.send(self.target, "/load", 2, "MeesterMuink1.wav")
+        liblo.send(self.target, "/load", 3, "9DomskAnimal.wav")
+        liblo.send(self.target, "/play", 0)
+        time.sleep(2)
+        liblo.send(self.target, "/unload", 0)
+        liblo.send(self.target, "/loopplay", 1)
+        liblo.send(self.target, "/loopplay", 2)
+        liblo.send(self.target, "/loopplay", 3)
+        liblo.send(self.target, "/masschange", 1, 1)
+        liblo.send(self.target, "/masschange", 2, 2)
+        liblo.send(self.target, "/masschange", 3, 3)
+
+    
+    # Thread to monitor wifi signals
+    def worm_wifi(self):
+        # Command to grab all listed signals in the area
+        scanwifi = 'sudo iwlist {} scan'.format(self.wifivars['interface'])
+        # Create an array for smoothing
+        smoothn = 5
+        smoother = [0]*smoothn
+        s=0
+        # Keep checking on the wifi signals in the area
+        while True:
+            # Grab all the signals
+            try:
+                resp = subprocess.check_output(scanwifi, shell=True).decode("utf-8").split("\n")
+                keyword = 'Signal' 
+                i=0
+                levels = []
+                for line in resp:
+                    # Save all the signal levels
+                    if keyword in line:
+                        level=self.grab_signal_level(line) 
+                        levels.append(int(level))
+                    # Save the level of a specific wifi ssid
+                    if self.wifivars['ssid'] in line:
+                        self.wifivars['ssidlevel'] = self.grab_signal_level(resp[i-2])
+                    i=i+1
+                self.wifivars['averagelevel'] = sum(levels) / len(levels)
+                self.wifivars['naccesspoints'] = len(levels)
+            except Exception as e:
+                pass
+            # And smooth the values
+            smoother[s] = self.wifivars['ssidlevel']
+            self.wifivars['smoothed_ssidlevel'] = sum(smoother)/len(smoother)
+            if s < smoothn-1:
+                s=s+1
+            else:
+                self.wifivars['startosc'] = True
+                s=0
+            #self.worm_wifi_osc(averagelevel, ssidlevel)
+    
+    # Thread to determine loop position
+    def worm_wifi_osc_trigger(self):
+        basestartpos = round(float(random.randint(0, 10))*0.1, 2)
+        smoothn = 5
+        smoother = [0]*smoothn
+        maxlevel = 0 
+        minlevel = 100 
+        pitch = 1
+        length = 2
+        while True:
+            # Wait until we have an accurate smoothed value
+            if self.wifivars['startosc']:
+                level = self.wifivars['smoothed_ssidlevel'] 
+                # work out the position smooth the values
+                position = round(((basestartpos+(level*0.01))/2), 2)
+                # Auto-range things so we can have sensitive reactions
+                if level > maxlevel: maxlevel= level
+                if level < minlevel: minlevel= level
+                myrange = maxlevel-minlevel
+                segment = float(myrange/6)
+                newlevel =  ((level*myrange)/100)
+                if newlevel <= segment: 
+                    pitch=0.2
+                    length=6
+                elif newlevel <= segment*2: 
+                    pitch=0.5
+                    length=5
+                elif newlevel <= segment*3: 
+                    pitch=1.4
+                    length=1
+                elif newlevel <= segment*4: 
+                    pitch=2.0
+                    length=0.7
+                elif newlevel <= segment*5: 
+                    pitch=10.0
+                    length=0.3
+                elif newlevel <= segment*6: 
+                    pitch=20.0
+                    length=0.2
+                liblo.send(self.target, "/position", 0, position)
+                liblo.send(self.target, "/pitch", 0, pitch)
+                print('{}Level:{} Smoothed:{} length:{} position:{} pitch:{} segment:{} range:{}, max:{} min:{} newlevel:{}'.format(self.wifivars['ssid'], self.wifivars['ssidlevel'], self.wifivars['smoothed_ssidlevel'], length, position, pitch, segment, myrange, maxlevel, minlevel, newlevel))
+            time.sleep(length)
+
+    # What OSC messageds should we send for the worm wifi?
+    def worm_wifi_osc(self, averagelevel, ssidlevel):
+        # Lets convert the levels from 0-100% to 0.0 to 1
+        #averagelevelcalc = averagelevel*0.01
+        #ssidlevelcalc = (ssidlevel*0.01)*1.5
+        # Send a message to alter pitch
+        ssidlevelcalc = 1.0
+        if ssidlevel >= 80:
+            ssidlevelcalc = 2.0
+        elif ssidlevel >= 50:
+            ssidlevelcalc = 1.5
+        elif ssidlevel >= 40:
+            ssidlevelcalc = 0.5
+        elif ssidlevel >= 40:
+            ssidlevelcalc = 0.2
+        liblo.send(self.target, "/pitch", 0, ssidlevelcalc)
+        # Or what about altering position
+        self.wormlooppos = (ssidlevel)*0.01
+        self.wormlooplength = ((100-ssidlevel)/10)+0.1
+
+    # Thread to monitor analog inputs
+    def worm_analog(self):
+        # Now loop and send continuous messages
+        pitch = oldpitch = newpitch = 0.0
+        startA = startB = time.time()
+        time.clock()
+        elapsedA = elapsedB = counter = lastcount = rps = oldrps = 0
+        maxsmooth = 10
+        smooth = range(maxsmooth+1)
+        n = 0
+        incspeed = 0.3
+        while True:        
+            # pitch = (-1*math.sin(step)*(top-bottom))+(top-bottom) # Sine wave used for testing
+            # step += 0.2                                           #   |---Used for testing
+            elapsedA = time.time() - startA
+            elapsedB = time.time() - startB
+            # Read the analog input and count how many times
+            # it reached the threshold every n seconds
+            a = round(ADC.read("AIN0"),2) # returns a value between 0 and 1.0
+            b = round(ADC.read("AIN1"),2) # returns a value between 0 and 1.0
+            c = round(ADC.read("AIN2"),2) # returns a value between 0 and 1.0
+            d = round(ADC.read("AIN3"),2) # returns a value between 0 and 1.0
+            e = round(ADC.read("AIN4"),2) # returns a value between 0 and 1.0
+            f = round(ADC.read("AIN5"),2) # returns a value between 0 and 1.0
+            g = round(ADC.read("AIN6"),2) # returns a value between 0 and 1.0
+            # Now determin revolutions per n seconds
+            if elapsedA > 0.5:
+                startA = time.time()
+                print('a1:{} a2:{} a3:{} a4:{} a5:{} a6:{} '.format(a,b,c,d,e,f,g))
+            #    startB = time.time()
+            #     liblo.send(target, "/volume", 0, pitch)
+    
+    # UTILITIES ===========
+    def grab_signal_level(self, line):
+        try:
+            #level=line.strip().split("Quality=")[1].replace(' dBm', '')
+            nums = line.split('Quality=')[1].split('  Signal level')[0].split('/')
+            quality =  int(round(float(nums[0]) / float(nums[1]) * 100))
+        except:
+            quality = 0
+        return int(quality)
+
+# Start the app
+Wormery('wlan1', 'shark')

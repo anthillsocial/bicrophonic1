@@ -60,34 +60,41 @@ if isfile(mapfile)==false then
     utils.log(logfile, module..": Exiting") os.exit(1)
 end
 
-while isfile(gpsdev)==false do
-    utils.log(logfile, module..": No GPS device...") 
-    os.execute("sleep 5")
+-- Don't run if we are using fake gps
+if fake_gps == 'false' then
+    -- wait until we have a gps device
+    while isfile(gpsdev)==false do
+        utils.log(logfile, module..": No GPS device...") 
+        os.execute("sleep 5")
+    end
 end
 
-
-
+-- Load the map & tets its ok
 local themap=utils.load_json(mapfile)
 map.test_map(themap, logfile)
 
 -- start the audio player
 os.execute(audio_player_bin.." &") 
 utils.log(logfile, "openframeworks audio player started")
-posix.sleep(2)
-
--- start the gps daemon 
-os.execute(scriptpath.."../lib/gpsd_lua &")
-utils.log(logfile, "gpsd_lua started")
-utils.log(logfile, "waiting for gpsd")
 posix.sleep(4)
+os.execute("send_osc 12345 /load 10 startup.wav")
+os.execute("send_osc 12345 /play 10")
+utils.log(logfile, "send_osc 12345 /load 10 startup.wav")
+utils.log(logfile, "send_osc 12345 /play 10")
 
 -- Shall we grab fake or real gps?
 if fake_gps == 'false' then
+    -- start the gps daemon 
+    os.execute(scriptpath.."../lib/gpsd_lua &")
+    utils.log(logfile, "gpsd_lua started")
+    utils.log(logfile, "waiting for gpsd")
+    posix.sleep(4)
     --- connect to the gps pipe
     utils.log(logfile, "attempting gps pipe connection") 
     local file = io.open("/tmp/swamp_gps","r")
     utils.log(logfile, "connected to gps pipe")
 else
+    utils.log(logfile, "Attempt to run fake gps")
     -- Check fake gps file exists
     if isfile(fake_gps_log)==false then
         utils.log(logfile, module..": Error: "..mapfile.." does not exist")
@@ -120,7 +127,7 @@ while true do
     local line = nil
     if fake_gps == 'true' then
         line = io.read()
-        --print(line)
+        print(line)
         line = string.sub(line, 26)
     else
         line = file:read()
@@ -141,15 +148,13 @@ while true do
 	    state,events=map.get_events(pos,state,themap,t)
         pos_state=engine.update_pos_state(pos,pos_state)
         engine.load_events(sample_events,pos_state)
+        
+        --utils.table_print(events)
+        --utils.table_print(pos_state)
+        --utils.table_print(sample_state)
+
         engine.play_events(events,pos_state)
-	    --utils.table_print(sample_state)
        end
     end
     posix.sleep(1)
 end
-
-
-
-
-
-
