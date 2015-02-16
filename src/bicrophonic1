@@ -33,7 +33,7 @@ require 'socket'
 require 'utils'
 require 'json'
 
-CONFIG=utils.load_json("/sdcard/config.json")  
+CONFIG=utils.load_json("/home/sonic/sdcard/config.json")  
 
 local logfile = CONFIG.logfile
 local gpsdev  = CONFIG.gps_device

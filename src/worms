@@ -15,7 +15,15 @@ class Wormery:
             'smoothed_ssidlevel':0,
             'naccesspoints':0,
             'averagelevel':0,
-            'startosc':False
+            'startosc':False,
+            'a0':False,
+            'a1':False,
+            'a2':False,
+            'a3':False,
+            'a4':False,
+            'a5':False,
+            'a6':False
+
         }
         # Setup the OSC object so we can send messages
         try:
@@ -28,9 +36,9 @@ class Wormery:
         # And setup the analog read
         ADC.setup()
         # Release the worms! Start some threads
-        threading.Thread(target=self.worm_wifi).start()
-        threading.Thread(target=self.worm_wifi_osc_trigger).start()
-        #threading.Thread(target=self.worm_analog).start()
+        #threading.Thread(target=self.worm_wifi).start()
+        #threading.Thread(target=self.worm_wifi_osc_trigger).start()
+        threading.Thread(target=self.worm_analog).start()
         
     # Just load some test sounds for us to play with
     def load_test_sounds(self):
@@ -234,38 +242,25 @@ class Wormery:
         self.wormlooppos = (ssidlevel)*0.01
         self.wormlooplength = ((100-ssidlevel)/10)+0.1
 
-    # Thread to monitor analog inputs
+    # Thread to monitor all analog inputs
     def worm_analog(self):
-        # Now loop and send continuous messages
-        pitch = oldpitch = newpitch = 0.0
-        startA = startB = time.time()
-        time.clock()
-        elapsedA = elapsedB = counter = lastcount = rps = oldrps = 0
-        maxsmooth = 10
-        smooth = range(maxsmooth+1)
-        n = 0
-        incspeed = 0.3
+        # Setup an asysnc timer
+        Atimer = AsyncTimer(1)
+        Asmoother = Smoother(10)
+        Aranger = Ranger([0.0,1.0], [0.2, 10.0]) 
+        # Start the loop and check for values
         while True:        
             # pitch = (-1*math.sin(step)*(top-bottom))+(top-bottom) # Sine wave used for testing
             # step += 0.2                                           #   |---Used for testing
-            elapsedA = time.time() - startA
-            elapsedB = time.time() - startB
             # Read the analog input and count how many times
-            # it reached the threshold every n seconds
-            a = round(ADC.read("AIN0"),2) # returns a value between 0 and 1.0
             b = round(ADC.read("AIN1"),2) # returns a value between 0 and 1.0
-            c = round(ADC.read("AIN2"),2) # returns a value between 0 and 1.0
-            d = round(ADC.read("AIN3"),2) # returns a value between 0 and 1.0
-            e = round(ADC.read("AIN4"),2) # returns a value between 0 and 1.0
-            f = round(ADC.read("AIN5"),2) # returns a value between 0 and 1.0
-            g = round(ADC.read("AIN6"),2) # returns a value between 0 and 1.0
-            # Now determin revolutions per n seconds
-            if elapsedA > 0.5:
-                startA = time.time()
-                print('a1:{} a2:{} a3:{} a4:{} a5:{} a6:{} '.format(a,b,c,d,e,f,g))
-            #    startB = time.time()
-            #     liblo.send(target, "/volume", 0, pitch)
-    
+            bvalue = Asmoother.grab(b)
+            bconverted = round(Aranger.convert(bvalue), 2)
+            if Atimer.istime():
+                #print('masspitch:{}'.format(bconverted))
+                liblo.send(self.target, "/masspitch", bvalue)
+            time.sleep(0.1)
+
     # UTILITIES ===========
     def grab_signal_level(self, line):
         try:
@@ -276,5 +271,63 @@ class Wormery:
             quality = 0
         return int(quality)
 
+# Async timer class
+class AsyncTimer:
+    # Initialise the object
+    def __init__(self, interval):
+        # Setup vars
+        self._start = time.time()
+        self._elapsed = 0
+        self._interval = interval
+    def istime(self):
+        self._elapsed = time.time() - self._start
+        if self._elapsed >= self._interval:
+            self._start = time.time()
+            return True
+        else:
+            return False
+
+# Smooth values class
+class Smoother:
+    # Initialise the object
+    def __init__(self, smoothlen):
+        # Setup vars
+        self.smootharray = [0]*smoothlen
+        self.i = 0
+    def grab(self, value):
+        self.smootharray[self.i] = value
+        self.i = self.i+1
+        if self.i > len(self.smootharray)-1: self.i=0
+        return sum(self.smootharray) / len(self.smootharray )
+
+
+# Range class
+class Ranger:
+    # Initialise the object
+    def __init__(self, rangeA, rangeB):
+        self._maxA = rangeA[1]
+        self._minA = rangeA[0]
+        self._maxB = rangeB[1]
+        self._minB = rangeB[0]
+    def convert(self, valueA):
+        # protect for the case where the old range goes higher or lower than max or min
+        if (valueA < self._minB): return self._minB
+        if (valueA > self._maxA): return self._maxA 
+        rangeA = (self._maxA-self._minA)
+        rangeB = (self._maxB-self._minB)  
+        valueB = (((valueA-self._minA)*rangeB)/rangeA)+self._minB
+        return valueB 
+
+
 # Start the app
 Wormery()
+#from random import randint
+#atimer = AsyncTimer(1)
+#staticRange = RangeConvertor([0,100], [0.0,1.0])
+#smoothA = Smoother(4)
+#while True:
+#    if atimer.istime():
+#        value = randint(0,100) 
+#        newvalue = staticRange.convert(value)
+#        smoothvalue = smoothA.grab(newvalue)
+#        print('OldValue:{} NewValue:{} Smoothed:{}'.format(value, newvalue, smoothvalue))
