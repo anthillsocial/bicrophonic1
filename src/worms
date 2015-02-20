@@ -9,21 +9,10 @@ class Wormery:
     def __init__(self):
         # Setup vars
         self.wifivars = {
-            'ssid':'shark', 
-            'interfaces':['wlan0', 'wlan1'], 
             'ssidlevel':0,
-            'smoothed_ssidlevel':0,
             'naccesspoints':0,
             'averagelevel':0,
             'startosc':False,
-            'a0':False,
-            'a1':False,
-            'a2':False,
-            'a3':False,
-            'a4':False,
-            'a5':False,
-            'a6':False
-
         }
         # Setup the OSC object so we can send messages
         try:
@@ -36,39 +25,33 @@ class Wormery:
         # And setup the analog read
         ADC.setup()
         # Release the worms! Start some threads
-        #threading.Thread(target=self.worm_wifi).start()
-        #threading.Thread(target=self.worm_wifi_osc_trigger).start()
-        threading.Thread(target=self.worm_analog).start()
+        threading.Thread(target=self.worm_wifi).start()
+        threading.Thread(target=self.worm_wifi_osc).start()
+        #threading.Thread(target=self.worm_analog).start()
         
     # Just load some test sounds for us to play with
     def load_test_sounds(self):
         # Grab a list of filenames
+        print("========worms in test mode=======")
         import glob
         directory = "/home/sonic/sdcard/brussels/sound/"
+        liblo.send(self.target, "/setaudiodir", directory)
         files = glob.glob("{}*.wav".format(directory)) 
         files.remove(directory+"startup.wav")
-        rand = random.randint(0, len(files)-1) 
-        myfileA = files[rand].replace(directory, '')
-        rand = random.randint(0, len(files)-1)
-        myfileB = files[rand].replace(directory, '')
-        liblo.send(self.target, "/load", 0, "startup.wav")
-        #liblo.send(self.target, "/load", 1, "SerenadeStrHi.wav")
-        liblo.send(self.target, "/load", 2, myfileA)
-        liblo.send(self.target, "/load", 3, myfileB)
-        liblo.send(self.target, "/play", 0)
-        time.sleep(2)
-        liblo.send(self.target, "/unload", 0)
-        liblo.send(self.target, "/loopplay", 1)
-        liblo.send(self.target, "/loopplay", 2)
-        liblo.send(self.target, "/loopplay", 3)
-        liblo.send(self.target, "/masschange", 1, 1)
-        liblo.send(self.target, "/masschange", 2, 2)
-        liblo.send(self.target, "/masschange", 3, 3)
+        # Now load an play some files
+        self.playrandomfile("/loopplay", 0, directory, files)
+        self.playrandomfile("/loopplay", 1, directory, files)
 
+    def playrandomfile(self, command, channel, directory, files):
+        rand = random.randint(0, len(files)-1)
+        myfile = files[rand].replace(directory, '')
+        liblo.send(self.target, "/load", channel, myfile)
+        liblo.send(self.target, command, channel)
+        liblo.send(self.target, "/masschange", channel, 1)
     
     # Thread to monitor wifi signals
     def worm_wifi(self):
-        # Lets check whcih interface is up
+        # Lets check which interface is up
         try:
             scanme = subprocess.check_output("ip a | grep wlan0", shell=True).decode("utf-8")
             interface = 'wlan0'
@@ -76,10 +59,6 @@ class Wormery:
             interface = 'wlan1'
         scanwifi = 'sudo iwlist {} scan'.format(interface)
         print(scanwifi)
-        # Create an array for smoothing
-        smoothn = 1
-        smoother = [0]*smoothn
-        s=0
         # Keep checking on the wifi signals in the area
         while True:
             # Grab all the signals
@@ -95,122 +74,41 @@ class Wormery:
                         levels.append(int(level))
                         #print(line)
                     # Save the level of a specific wifi ssid
-                    if self.wifivars['ssid'] in line:
+                    if 'bike' in line:
                         self.wifivars['ssidlevel'] = self.grab_signal_level(resp[i-2])
                     i=i+1
                 self.wifivars['averagelevel'] = sum(levels) / len(levels)
                 self.wifivars['naccesspoints'] = len(levels)
+                self.wifivars['startosc'] = True
             except Exception as e:
                 print('no wifi found with:'.format(scanwifi))
-            # And smooth the values
-            smoother[s] = self.wifivars['ssidlevel']
-            self.wifivars['smoothed_ssidlevel'] = sum(smoother)/len(smoother)
-            if s < smoothn-1:
-                s=s+1
-            else:
-                self.wifivars['startosc'] = True
-                s=0
-            time.sleep(1)
-            #self.worm_wifi_osc(averagelevel, ssidlevel)
+            time.sleep(2)
     
-    def worm_wifi_osc_trigger(self):
-        basestartpos = round(float(random.randint(0, 10))*0.1, 2)
-        startA = startB = time.time()
-        elapsedA = elapsedB = 0
-        output = ''
+    # What OSC messages should we send for the worm wifi?
+    def worm_wifi_osc(self):
+        oscTimer = AsyncTimer(5) # Trigger every n seconds
+        printTimer = AsyncTimer(2) # Trigger every n seconds
+        posRange = Ranger([0,100], [0.0,1.0])
+        levelSmoothed = Smoother(4)
         while True:
-            level = self.wifivars['smoothed_ssidlevel']
             if self.wifivars['startosc']: 
                 # Setup some vars
-                level = self.wifivars['smoothed_ssidlevel']
+                level = levelSmoothed.grab(self.wifivars['ssidlevel'])
                 accesspoints = self.wifivars['naccesspoints']
-                # Calculate a pitch
-                pitch = self.calc_pitch(level)
-                # Calculate a length
-                length = self.calc_length(level)
-                # Send some OSC, but only at a certain interval
-                elapsedA = time.time() - startA
-                if elapsedA > 0.3:
-                    startA = time.time()
-                    liblo.send(self.target, "/pitch", 2, pitch)
+                # Calculate variables for the superlooper
+                position = posRange.convert(level)
+                length = 0.5; 
+                # Send some OSC at a certain interval
+                if oscTimer.istime():
+                    #liblo.send(self.target, "/masssuperlooper", "on", position, length)
+                    print("/masssuperlooper on pos:{} len:{}".format(position, length))
                 # Timed print function
-                elapsedB = time.time() - startB
-                if elapsedB > 2:
+                if printTimer.istime():
                     startB = time.time()
-                    output = 'ssid:{}'.format(self.wifivars['ssid']) 
-                    output += ' level:{}'.format(level) 
+                    output = ' level:{}'.format(level) 
                     output += ' accesspoints:{}'.format(accesspoints) 
-                    output += ' pitch:{}'.format(pitch)
-                    output += ' length:{}'.format(length)
                     print(output)
             
-    # Thread to determine loop position
-    def worm_wifi_osc_trigger_smoothing(self):
-        basestartpos = round(float(random.randint(0, 10))*0.1, 2)
-        smoothn = 1
-        smoother = [0]*smoothn
-        maxlevel = 0 
-        minlevel = 100 
-        pitch = 1
-        length = 2
-        oldpitch = pitch
-        oldlength = length
-        oldlevel = 0
-        pittimer = lentimer = printtimer = time.time()
-        pitelapsed = lenelapsed =  printelapsed = 0
-        while True:
-            # Wait until we have an accurate smoothed value
-            level = self.wifivars['smoothed_ssidlevel']
-            if self.wifivars['startosc']:
-                level = self.wifivars['smoothed_ssidlevel'] 
-                # work out the position smooth the values
-                position = round(((basestartpos+(level*0.01))/2), 2)
-                # Auto-range things so we can have sensitive reactions
-                if level > maxlevel: maxlevel= level
-                if level < minlevel: minlevel= level
-                myrange = maxlevel-minlevel
-                segment = float(myrange/6)
-                newlevel =  ((level*myrange)/100)
-                if newlevel <= segment: 
-                    pitch=1
-                    length=100000
-                elif newlevel <= segment*2: 
-                    pitch=0.5
-                    length=5
-                elif newlevel <= segment*3: 
-                    pitch=1.4
-                    length=1
-                elif newlevel <= segment*4: 
-                    pitch=2.0
-                    length=0.7
-                elif newlevel <= segment*5: 
-                    pitch=10.0
-                    length=0.3
-                elif newlevel <= segment*6: 
-                    pitch=20.0
-                    length=0.2
-                # Only send an OSC message if a value has changed or if its time to do so
-                pitelapsed = time.time() - pittimer
-                lenelapsed = time.time() - lentimer
-                printelapsed = time.time() - printtimer
-                if printelapsed > 2:
-                    print('nssids:{} ssid:{} Level:{} Smoothed:{} length:{} position:{} pitch:{} segment:{} range:{}, max:{} min:{} newlevel:{}'.format(self.wifivars['naccesspoints'], self.wifivars['ssid'], self.wifivars['ssidlevel'], self.wifivars['smoothed_ssidlevel'], length, position, pitch, segment, myrange, maxlevel, minlevel, newlevel))
-                    printtimer =  time.time()
-                if pitelapsed > 2:
-                    if pitch != pitch: 
-                        liblo.send(self.target, "/position", 2, position)
-                        print('changed pitch')
-                    pittimer = time.time()
-                if lenelapsed > length:
-                    if oldlength != length: 
-                        liblo.send(self.target, "/pitch", 2, pitch)
-                        print('changed length')
-                    lentimer = time.time()
-                # Save the old pitches
-                oldpitch = pitch
-                oldlength = length  
-                print('nssids:{} ssid:{} Level:{} Smoothed:{} length:{} position:{} pitch:{} segment:{} range:{}, max:{} min:{} newlevel:{}'.format(self.wifivars['naccesspoints'], self.wifivars['ssid'], self.wifivars['ssidlevel'], self.wifivars['smoothed_ssidlevel'], length, position, pitch, segment, myrange, maxlevel, minlevel, newlevel))
-    
     def calc_pitch(self, level):
         pitch = level*0.01
         if pitch < 0.3: 
@@ -221,44 +119,35 @@ class Wormery:
         level = 100-level
         length = level*0.01
         return length
-
-    # What OSC messageds should we send for the worm wifi?
-    def worm_wifi_osc(self, averagelevel, ssidlevel):
-        # Lets convert the levels from 0-100% to 0.0 to 1
-        #averagelevelcalc = averagelevel*0.01
-        #ssidlevelcalc = (ssidlevel*0.01)*1.5
-        # Send a message to alter pitch
-        ssidlevelcalc = 1.0
-        if ssidlevel >= 80:
-            ssidlevelcalc = 2.0
-        elif ssidlevel >= 50:
-            ssidlevelcalc = 1.5
-        elif ssidlevel >= 40:
-            ssidlevelcalc = 0.5
-        elif ssidlevel >= 40:
-            ssidlevelcalc = 0.2
-        liblo.send(self.target, "/pitch", 0, ssidlevelcalc)
-        # Or what about altering position
-        self.wormlooppos = (ssidlevel)*0.01
-        self.wormlooplength = ((100-ssidlevel)/10)+0.1
-
-    # Thread to monitor all analog inputs
+ 
+    # Thread to monitor all analog input
     def worm_analog(self):
         # Setup an asysnc timer
-        Atimer = AsyncTimer(1)
+        Atimer = AsyncTimer(5) # Trigger every n seconds
         Asmoother = Smoother(10)
         Aranger = Ranger([0.0,1.0], [0.2, 10.0]) 
+        oldsmoothval = -1;
+        move = 'off';
         # Start the loop and check for values
         while True:        
             # pitch = (-1*math.sin(step)*(top-bottom))+(top-bottom) # Sine wave used for testing
             # step += 0.2                                           #   |---Used for testing
             # Read the analog input and count how many times
             b = round(ADC.read("AIN1"),2) # returns a value between 0 and 1.0
-            bvalue = Asmoother.grab(b)
-            bconverted = round(Aranger.convert(bvalue), 2)
+            smoothvalue = Asmoother.grab(b)
+            #bconverted = round(Aranger.convert(bvalue), 2)
             if Atimer.istime():
-                #print('masspitch:{}'.format(bconverted))
-                liblo.send(self.target, "/masspitch", bvalue)
+                if smoothvalue > oldsmoothval: move='up'
+                if smoothvalue < oldsmoothval: move='down'
+                if smoothvalue == oldsmoothval: move='off'
+                inc = 0.4
+                speed = 0.3
+                mmax = 19.5
+                mmin = 0.5
+                chan = 2
+                liblo.send(self.target, "/masssuperpitch", move, inc, speed, mmax, mmin)
+                oldsmoothval = smoothvalue
+                print("smooth:{} oldsmooth:{} OSC:/superpitch chan:{} move:{} inc:{} speed:{} mmax:{} mmin:{}".format(smoothvalue, oldsmoothval, chan, move, inc, speed, mmax, mmin))
             time.sleep(0.1)
 
     # UTILITIES ===========

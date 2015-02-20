@@ -22,15 +22,27 @@ ip link set wlan0 up
 chmod 777 /home/sonic/sdcard -R
 
 # Setup the soundcard. Needs a little time before volume can be set
-sleep 2
+sleep 1
 amixer -c 0 set PCM 100% > /dev/null  # Set initital audio volume to full
 
 # Start the Audio Engine
-# /home/sonic/SonicBikeAudioEngine/bin/SonicBikeAudioEngine & > /dev/null
+/home/sonic/SonicBikeAudioEngine/bin/SonicBikeAudioEngine & > /dev/null
 
-# Start the map reading and gps application
-cd /home/sonic/bicrophonic1/src       # Move to our dir so relative paths work
-./bicrophonic1 & > /dev/null          # Start the app
+# Move to our dir so relative paths work
+cd /home/sonic/bicrophonic1/src      
 
-# Release the worms! (scan for wifi and read analog input)
-./worms & > /dev/null
+# Check if we should just laod the worms script: sudo ./start test
+args=$@
+if [ $# -ne 0 ]; then
+    # Found an argument so lets start a test
+    ./worms & > /dev/null
+else
+    # otherwise start up as normal    
+    # Start the map reading and gps application
+    ./bicrophonic1 & > /dev/null          # Start the app
+
+    # Release the worms! (scan for wifi and read analog input)
+    ./worms & > /dev/null
+fi
+
+
