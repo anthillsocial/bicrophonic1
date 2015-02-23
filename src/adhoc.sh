@@ -1,5 +1,6 @@
 DEVICE=$(ip a | grep wlan | awk '{print $2}' | sed s/://g)
-ESSID="sonic-pop"
+SERIAL=$(./grabserial.sh)
+ESSID="sonic-$SERIAL"
 #iwconfig $DEVICE ap any
 #iwconfig $DEVICE txpower 30mW
 #http://www.teamxlink.co.uk/forum/viewtopic.php?p=233117

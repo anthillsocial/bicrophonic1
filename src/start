@@ -71,4 +71,6 @@ else
     # Release the worms! (scan for wifi and read analog input)
     ./worms wifi & > /dev/null
 fi
-#./adhoc.sh
+
+# And finally start up the adhoc wifi
+./adhoc.sh
