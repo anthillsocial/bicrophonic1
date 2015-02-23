@@ -1,4 +1,21 @@
 #!/usr/bin/env python
+
+## Finding Song Home embedded system for Kaffe Matthews
+## Copyright (C) 2015 Tom Keene
+## 
+## This program is free software: you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation, either version 3 of the License, or
+## (at your option) any later version.
+## 
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+## GNU General Public License for more details.
+## 
+## You should have received a copy of the GNU General Public License
+## along with this program. If not, see <http://www.gnu.org/licenses/>.
+
 import liblo, sys, os, time, math, threading, subprocess, random, json
 import Adafruit_BBIO.ADC as ADC
 
@@ -15,10 +32,17 @@ class Wormery:
     def __init__(self):
         # Load the config file
         self.loadedmemory = 0
-        self.maxmemory = 55
+        self.maxmemory = 55*1024*1024 # the first number is mb's. Needs to be low because of OpenenFrameworks terrible audio module which used 6X memory for each sound!
         self.mode = 'mode'
-        self.nfiles = 3
-        self.directory = "/home/sonic/sdcard/brussels/sound/"
+        self.nfiles = 1
+        # Grab the unique serial number of this device
+        try:
+            self.serial = subprocess.check_output("./grabserial.sh", shell=True).decode("utf-8")
+            self.serial.replace('\r','')
+        except:
+            self.log('Unable to find SERIAL number.')
+            sys.exit()
+        # Load the config
         try:
             json_data=open('/home/sonic/sdcard/config.json')
             data = json.load(json_data)
@@ -26,16 +50,16 @@ class Wormery:
             self.directory = data['audio_path']
             json_data.close()
         except:
-            pass
+            self.log('Couldn\'t find config at: /home/sonic/sdcard/config.json')
+            sys.exit()
         # Setup the OSC object so we can send messages
         try:
             self.target = liblo.Address(12345)
         except liblo.AddressError as err:
-            print(err)
+            self.log(err)
             sys.exit()
         # Load some test sounds
         if 'test' in sys.argv or self.mode=='random':
-            print('Loading random sounds')
             self.load_test_sounds()
         # And setup the analog read
         ADC.setup()
@@ -43,16 +67,15 @@ class Wormery:
         if 'wifi' in sys.argv or sys.argv[0]== '' :
             threading.Thread(target=self.worm_wifi).start()
             threading.Thread(target=self.worm_wifi_osc).start()
-            print('Start wifi')
         if 'analog' in sys.argv or sys.argv[0] == '' :
             threading.Thread(target=self.worm_analog).start()
-            print('Start analog')
     
     # Just load some test sounds for us to play with
     def load_test_sounds(self):
         # Grab a list of filenames
-        print("========worms in test mode=======")
+        self.log("========worms in test mode=======")
         import glob
+        self.whichfile = 5
         liblo.send(self.target, "/setaudiodir", self.directory)
         self.files = glob.glob("{}*.wav".format(self.directory)) 
         try:
@@ -61,10 +84,10 @@ class Wormery:
             pass
         # Now load an play some files
         canchange = 0
-        i = 1
+        i = 0
         self.filesizes = [0]*(self.nfiles+1)
         while i <= self.nfiles:
-            canchange = not canchange
+            canchange = 1 #not canchange
             self.playrandomfile("/loopplay", i, canchange)
             i = i+1
 
@@ -73,6 +96,8 @@ class Wormery:
         else: change=0
         rand = random.randint(0, len(self.files)-1)
         myfile = self.files[rand].replace(self.directory, '')
+        myfile = self.files[self.whichfile].replace(self.directory, '')
+        self.whichfile = self.whichfile+1
         # Only load if we have enough memory
         if self.availmemory(myfile, channel):
             liblo.send(self.target, "/load", channel, myfile)
@@ -84,24 +109,27 @@ class Wormery:
         channel = random.randint(0, self.nfiles)
         self.loadedmemory=self.loadedmemory-self.filesizes[channel]
         liblo.send(self.target, "/unload", channel)
-        time.sleep(1)
+        time.sleep(0.5)
         canchange = random.randint(0, 1)
         self.playrandomfile("/loopplay", channel, canchange)
 
     # Available memory
     def availmemory(self, myfile, channel):
         path = self.directory+myfile
-        filesize =int( os.path.getsize(path)/1024/1024)
+        filesize = os.path.getsize(path)
         free = self.maxmemory-self.loadedmemory
-        print('Filesize:{}mb Loaded:{}mb Free:{} Path:{}'.format(filesize, self.loadedmemory, free, path) )
+        op = 'Filesize:{}mb Loaded:{}mb Free:{} Path:{}'.format(self.toMB(filesize), self.toMB(self.loadedmemory), self.toMB(free), path) 
         if filesize > free:
             return False
         else:
-            print(channel)
-            print(self.filesizes)
+            self.log('{} {}'.format(op, self.filesizes))
             self.filesizes[channel] = filesize
             self.loadedmemory=self.loadedmemory+filesize
             return True
+
+    # convert to megabytes
+    def toMB(self, var):
+        return round(var/1024/1024,2)
 
     # Thread to monitor wifi signals
     def worm_wifi(self):
@@ -112,14 +140,14 @@ class Wormery:
             'averagelevel':0,
             'startosc':False,
         }
+        myESSID = 'sonic-'+self.serial 
         # Lets check which interface is up
         try:
-            scanme = subprocess.check_output("ip a | grep wlan0", shell=True).decode("utf-8")
-            interface = 'wlan0'
+            interface = subprocess.check_output("ip a | grep wlan | awk '{print $2}' | sed s/://g | tr -d '\n'", shell=True).decode("utf-8")
         except:
-            interface = 'wlan1'
+            pass
         scanwifi = 'sudo iwlist {} scan'.format(interface)
-        print(scanwifi)
+        self.log(scanwifi)
         # Keep checking on the wifi signals in the area
         while True:
             # Grab all the signals
@@ -128,30 +156,39 @@ class Wormery:
                 keyword = 'Signal' 
                 i=0
                 levels = []
+                self.wifivars['ssidlevel'] = 0
                 for line in resp:
                     # Save all the signal levels
                     if keyword in line:
                         level=self.grab_signal_level(line) 
                         levels.append(int(level))
-                        #print(line)
-                    # Save the level of a specific wifi ssid
+                        #self.log(line)
+                    # Save the level of a all wifi essid's beginng in 'sonic-'
                     if 'sonic' in line:
-                        self.wifivars['ssidlevel'] = self.grab_signal_level(resp[i-2])
+                        if myESSID not in line:
+                            #self.log('FoundOtherSonicWifi:{}'.format(line))
+                            newlevel = self.grab_signal_level(resp[i-2])
+                            if newlevel > self.wifivars['ssidlevel']:
+                                self.wifivars['ssidlevel'] = newlevel
+                        else:
+                            #self.log('FoundMySonicWifi:{}'.format(line))
+                            pass
                     i=i+1
                 self.wifivars['averagelevel'] = sum(levels) / len(levels)
                 self.wifivars['naccesspoints'] = len(levels)
                 self.wifivars['startosc'] = True
             except Exception as e:
-                print('no wifi found with:'.format(scanwifi))
-            time.sleep(2)
+                self.log('no wifi found with:'.format(scanwifi))
+            time.sleep(3)
     
     # What OSC messages should we send for the worm wifi?
     def worm_wifi_osc(self):
-        oscTimer = AsyncTimer(10) # Trigger every n seconds
+        oscTimer = AsyncTimer(4) # Trigger every n seconds
         swapSoundTimer = AsyncTimer(30) # Trigger every n seconds
         printTimer = AsyncTimer(2) # Trigger every n seconds
         posRange = Ranger([0,5], [0.0,1.0])
         lenRange = Ranger([0,5], [0.0,10.0])
+        levelRange = Ranger([0,100], [0.1,100.0])
         levelSmoothed = Smoother(4)
         while True:
             if self.wifivars['startosc']: 
@@ -160,23 +197,36 @@ class Wormery:
                 accesspoints = self.wifivars['naccesspoints']
                 # Calculate variables for the superlooper
                 position = posRange.convert(accesspoints)
-                length = lenRange.convert(accesspoints)
+                length = levelRange.convert(level)
+                length = 100.0-length
+                if length < 0.1: length=0.1
+                # prep debug output
+                output = ' level:{}'.format(level) 
+                output += ' accesspoints:{}'.format(accesspoints) 
+                output += ' position:{}'.format(position)
+                output += ' length:{}'.format(length)
                 # Send some OSC at a certain interval
                 if oscTimer.istime():
-                    liblo.send(self.target, "/masssuperlooper", "on", position, length)
-                    print("/masssuperlooper on pos:{} len:{}".format(position, length))
+                    # Set the loop when nearby
+                    #liblo.send(self.target, "/masssuperlooper", "on", position, length)
+                    #self.log("/masssuperlooper on pos:{} len:{} | {}".format(position, length, output))
+                    #self.log("/masssuperlooper on pos:{} len:{} | {}".format(position, length, output))
+                    # Set the pitch when nearby
+                    inc = 0.3
+                    speed = 0.2
+                    mmax = 10.5 # maximum pitch
+                    mmin = 0.4  # minimim pitch
+                    if level >= 70: 
+                        liblo.send(self.target, "/masssuperpitch", 'up', inc, speed, mmax, mmin)
+                    if level <= 69: 
+                        liblo.send(self.target, "/masssuperpitch", 'down', inc, speed, mmax, mmin)
+                    if level <= 20: 
+                        liblo.send(self.target, "/masssuperpitch", 'off', inc, speed, mmax, mmin)
+                        liblo.send(self.target, "/massspitch", 'off', 1.0)
                 # If we are in random mode then regularly swap the sound
-                if self.mode == 'random':
+                if self.mode == 'randomm':
                     if swapSoundTimer.istime():
                         self.swapsound()
-                # Timed print function
-                if printTimer.istime():
-                    startB = time.time()
-                    output = ' level:{}'.format(level) 
-                    output += ' accesspoints:{}'.format(accesspoints) 
-                    output += ' position:{}'.format(position)
-                    output += ' length:{}'.format(length)
-                    print(output)
             time.sleep(1)
             
     def calc_pitch(self, level):
@@ -215,7 +265,7 @@ class Wormery:
                 mmin = 0.5  # minimim pitch
                 liblo.send(self.target, "/masssuperpitch", move, inc, speed, mmax, mmin)
                 oldsmoothval = smoothvalue
-                print("smooth:{} oldsmooth:{} OSC:/superpitch move:{} inc:{} speed:{} mmax:{} mmin:{}".format(smoothvalue, oldsmoothval, move, inc, speed, mmax, mmin))
+                self.log("smooth:{} oldsmooth:{} OSC:/superpitch move:{} inc:{} speed:{} mmax:{} mmin:{}".format(smoothvalue, oldsmoothval, move, inc, speed, mmax, mmin))
 
     # UTILITIES ===========
     def grab_signal_level(self, line):
@@ -226,6 +276,10 @@ class Wormery:
         except:
             quality = 0
         return int(quality)
+    
+    # logger
+    def log(self, txt):
+        print('[worms] {}'.format(txt))
 
 # Async timer class
 class AsyncTimer:
@@ -287,4 +341,4 @@ Wormery()
 #        value = randint(0,100) 
 #        newvalue = staticRange.convert(value)
 #        smoothvalue = smoothA.grab(newvalue)
-#        print('OldValue:{} NewValue:{} Smoothed:{}'.format(value, newvalue, smoothvalue))
+#        self.log('OldValue:{} NewValue:{} Smoothed:{}'.format(value, newvalue, smoothvalue))
