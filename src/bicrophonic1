@@ -69,7 +69,7 @@ if fake_gps == 'false' then
     end
 end
 
--- Load the map & tets its ok
+-- Load the map & test its ok
 local themap=utils.load_json(mapfile)
 map.test_map(themap, logfile)
 

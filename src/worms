@@ -188,6 +188,7 @@ class Wormery:
         posRange = Ranger([0,5], [0.0,1.0])
         lenRange = Ranger([0,5], [0.0,10.0])
         levelRange = Ranger([0,100], [0.3,20.0])
+        pitchrange = Ranger([0,20], [0.3,10.0])
         levelSmoothed = Smoother(4)
         while True:
             if self.wifivars['startosc']: 
@@ -212,11 +213,19 @@ class Wormery:
                     #self.log("/masssuperlooper on pos:{} len:{} | {}".format(position, length, output))
                     #self.log("/masssuperlooper on pos:{} len:{} | {}".format(position, length, output))
                     
-                    # Staright pitch
-                    newlevel = round(levelRange.convert(level), 1)
-                    liblo.send(self.target, "/masspitch", newlevel)
-                    self.log("/masspitch {} | {}".format(newlevel, output))
+                    # Set mass pitch
+                    pitch = pitchrange.convert(accesspoints)
+                    liblo.send(self.target, "/masspitch", pitch)
+                    #self.log("/masspitch {} | {}".format(newlevel, output))
                     
+                    # Set mass volume
+                    volume = round(random.uniform(0.2, 1.0),2)
+                    liblo.send(self.target, "/massvolume", volume)
+                    
+                    # Set mass superloop: send_osc 12345 /superlooper 0 0.2 1.5
+                    length = round(random.uniform(0.2, 10.0),2)
+                    liblo.send(self.target, "/masssuperlooper", 'on', position, length)
+
                     # Set the pitch when nearby
                     #inc = 0.3
                     #speed = 0.2
