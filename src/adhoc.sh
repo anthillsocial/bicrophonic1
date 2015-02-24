@@ -28,4 +28,4 @@ iwconfig $DEVICE channel 1
 iwconfig $DEVICE essid $ESSID
 #iwconfig $DEVICE retry 0
 ip link set $DEVICE up 
-echo "WiFiStarted \"$ESSID\" ON \"$DEVICE\""
+echo "[adhoc.sh] WiFiStarted \"$ESSID\" ON \"$DEVICE\""

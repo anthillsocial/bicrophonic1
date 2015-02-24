@@ -213,7 +213,7 @@ class Wormery:
                     #self.log("/masssuperlooper on pos:{} len:{} | {}".format(position, length, output))
                     
                     # Staright pitch
-                    newlevel = round(levelRange.convert(100-level), 1)
+                    newlevel = round(levelRange.convert(level), 1)
                     liblo.send(self.target, "/masspitch", newlevel)
                     self.log("/masspitch {} | {}".format(newlevel, output))
                     

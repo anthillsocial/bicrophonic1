@@ -127,7 +127,7 @@ while true do
     local line = nil
     if fake_gps == 'true' then
         line = io.read()
-        print(line)
+        -- print(line)
         line = string.sub(line, 26)
     else
         line = file:read()

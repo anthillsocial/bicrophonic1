@@ -17,42 +17,39 @@
 
 
 # Script auto-called via systemd on boot
-# Or you could run: $ ./biophonic1 to start the app...
+# Or you could run: 
+#   $ ./biophonic1      # to start the GPS app...
+#   $ ./worms test wifi # to start the wifi app...
 
+CONFIG="/home/sonic/sdcard/config.json"
 # Make sure this script is runs as root so network/mount things work
 LUID=$(id -u)
 if [ $LUID -ne 0 ]; then
-    echo "$0 must be run as root"
+    echo "[start] $0 must be run as root"
     exit 1
 fi
 
-# Move to our dir so relative paths work
+# Move to this dir so relative paths work
 cd /home/sonic/bicrophonic1/src      
 
-# Make sure wifi is up
-WIFI=$(ip a | grep wlan0)
-if [ ! -z "$WIFI" ];  then
-    echo "wifi up"
-    ip link set wlan0 up 
-fi
-
-# Cleanup any open processes
+# Cleanup any open processes: warning, causes systemctl auto-start to fail
 #./stop > /dev/null                  
 
 # Check if we need to mount the SDcard Note: Could be manged by fstab...
-if [ -f /home/sonic/sdcard/config.json ]; then
+if [ -f $CONFIG ]; then
     # File exists
-    echo "Found /home/sonic/sdcard/config.json"
+    echo "[start] Found: $CONFIG"
 else
-    # File doesn't exist
+    # File doesn't exist so try mounting the sd card
     mount -t vfat -o defaults,rw,umask=0 /dev/mmcblk0p1 /home/sonic/sdcard
 fi
 
+# Where should we log startup messages?
+LOGFILE=$(grep '"logfile"' /home/sonic/sdcard/config.json | cut -d '"' -f4)
+
 # Which mode should we startup in?
-MODE=$(grep '"random"' /home/sonic/sdcard/config.json)
-if [ ! -z "$MODE" ];  then
-    MODE="random"
-fi
+MODE=$(grep '"mode"' $CONFIG | cut -d '"' -f4)
+echo "[start] Found mode: $MODE" 
 
 # Make sure we can write to the SDcard
 chmod 777 /home/sonic/sdcard -R
@@ -65,29 +62,31 @@ amixer -c 0 set PCM 100% > /dev/null  # Set initital audio volume to full
 /home/sonic/SonicBikeAudioEngine/bin/SonicBikeAudioEngine & > /dev/null
 sleep 1
 
-# And send a startup sound
+# And play a startup sound
+send_osc 12345 /setframerate 30
 send_osc 12345 /load 0 startup.wav
 send_osc 12345 /play 0
 sleep 2
 send_osc 12345 /unload 0
 
-# Check if we should just load the worms script: sudo ./start test
-args=$@
-if [ $# -ne 0 ]; then
-    # Found an argument so lets start a test
-    ./worms test wifi & > /dev/null
-else
-    # otherwise start up as normal    
-    # Start the map reading and gps application
-    if [ $MODE != "random" ]; then
-        ./bicrophonic1 & > /dev/null          # Start the app
-        echo "load Normal GPS system"
-    else
-        echo "Load Random Player"
-    fi
-    # Release the worms! (scan for wifi and read analog input)
+# Check which mode to load as. The mode is set in the config file
+if [ X"$MODE" = X"normal" ]; then
+    echo "[start] load Normal GPS based system"
+    ./bicrophonic1 & > /dev/null
+    # Release the worms
     ./worms wifi & > /dev/null
+    # And finally start up the adhoc wifi
+    ./adhoc.sh  & > /dev/null
+elif [ X"$MODE" = X"random" ]; then
+    echo "[start] Load Random Player"
+    # release the worms
+    ./worms test wifi & > /dev/null
+    # And finally start up the adhoc wifi
+    ./adhoc.sh  & > /dev/null
+else
+    echo "--------------------startup bicrophonic1-----------------------" >> $LOGFILE
+    echo "[start] No \"mode\" set. Edit the config and specify 'normal' OR 'random' mode " >> $LOGFILE
+    echo "[start error] Nothing has started. Exited. $CONFIG \n" >> $LOGFILE
+    echo "[start error] No mode set in '$CONFIG': normal OR random"
 fi
 
-# And finally start up the adhoc wifi
-./adhoc.sh
