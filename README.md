@@ -47,7 +47,8 @@ First we need to install adafruit's beaglebone-io-python libarary. This provides
     $ ntpdate -b -s -u pool.ntp.org
     $ git clone git://github.com/adafruit/adafruit-beaglebone-io-python.git
     $ cd adafruit-beaglebone-io-python/
-    $ sudo python ./setup.py install 
+    $ sudo python ./setup.py install    
+    $ sudo apt-get install python-psutil
 
 ## Wiring
 

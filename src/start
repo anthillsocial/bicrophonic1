@@ -59,33 +59,47 @@ sleep 1
 amixer -c 0 set PCM 100% > /dev/null  # Set initital audio volume to full
 
 # Start the Audio Engine
-/home/sonic/SonicBikeAudioEngine/bin/SonicBikeAudioEngine & > /dev/null
-sleep 1
-
-# And play a startup sound
-send_osc 12345 /setframerate 30
-send_osc 12345 /load 0 startup.wav
-send_osc 12345 /play 0
-sleep 2
-send_osc 12345 /unload 0
+#/home/sonic/SonicBikeAudioEngine/bin/SonicBikeAudioEngine & > /dev/null
+#sleep 1
 
 # Check which mode to load as. The mode is set in the config file
-if [ X"$MODE" = X"normal" ]; then
-    echo "[start] load Normal GPS based system"
+if [ X"$MODE" = X"worm" ]; then
+    echo "[start] Load worm Player"
+    # Load the audio engine
+    espeak "release the worms"
+    /home/sonic/SonicBikeAudioEngine/bin/SonicBikeAudioEngine & > /dev/null
+    sleep 1
+    echo "[start] load worm based system"
     ./bicrophonic1 & > /dev/null
     # Release the worms
-    ./worms wifi & > /dev/null
+    #./worms wifi & > /dev/null
     # And finally start up the adhoc wifi
-    ./adhoc.sh  & > /dev/null
-elif [ X"$MODE" = X"random" ]; then
-    echo "[start] Load Random Player"
+    #./adhoc.sh  & > /dev/null
+elif [ X"$MODE" = X"wormrandom" ]; then
+    echo "[start] Load Random worm Player"
+    espeak "start random worms"
+    # Load the audio engine
+    /home/sonic/SonicBikeAudioEngine/bin/SonicBikeAudioEngine & > /dev/null
+    sleep 1
+    # And play a startup sound
+    send_osc 12345 /setframerate 30
+    send_osc 12345 /load 0 startup.wav
+    send_osc 12345 /play 0
+    sleep 2
+    send_osc 12345 /unload 0
     # release the worms
     ./worms test wifi & > /dev/null
     # And finally start up the adhoc wifi
     ./adhoc.sh  & > /dev/null
+elif [ X"$MODE" = X"swamp" ]; then
+    # Load the old system
+    espeak "swamp system has started"
+    echo "--------------------startup olschool swamp system-----------------------" 
+    ./swamp_playd  & > /dev/null
+    ./bicrophonic1 & > /dev/null
 else
     echo "--------------------startup bicrophonic1-----------------------" >> $LOGFILE
-    echo "[start] No \"mode\" set. Edit the config and specify 'normal' OR 'random' mode " >> $LOGFILE
+    echo "[start] No \"mode\" set. Edit the config and specify 'swamp' OR 'bicrophonic1' OR 'bicrophonicrandom' mode " >> $LOGFILE
     echo "[start error] Nothing has started. Exited. $CONFIG \n" >> $LOGFILE
     echo "[start error] No mode set in '$CONFIG': normal OR random"
 fi

@@ -67,8 +67,8 @@ class Wormery:
         if 'wifi' in sys.argv or sys.argv[0]== '' :
             threading.Thread(target=self.worm_wifi).start()
             threading.Thread(target=self.worm_wifi_osc).start()
-        if 'analog' in sys.argv or sys.argv[0] == '' :
-            threading.Thread(target=self.worm_analog).start()
+        #if 'analog' in sys.argv or sys.argv[0] == '' :
+        #    threading.Thread(target=self.worm_analog).start()
     
     # Just load some test sounds for us to play with
     def load_test_sounds(self):
@@ -179,11 +179,11 @@ class Wormery:
                 self.wifivars['startosc'] = True
             except Exception as e:
                 self.log('no wifi found with:'.format(scanwifi))
-            time.sleep(1)
+            time.sleep(2)
     
     # What OSC messages should we send for the worm wifi?
     def worm_wifi_osc(self):
-        oscTimer = AsyncTimer(2) # Trigger every n seconds
+        oscTimer = AsyncTimer(3) # Trigger every n seconds
         swapSoundTimer = AsyncTimer(30) # Trigger every n seconds
         posRange = Ranger([0,5], [0.0,1.0])
         lenRange = Ranger([0,5], [0.0,10.0])
@@ -242,7 +242,7 @@ class Wormery:
                 if self.mode == 'randomm':
                     if swapSoundTimer.istime():
                         self.swapsound()
-            #time.sleep(1)
+            time.sleep(0.5)
             
     def calc_pitch(self, level):
         pitch = level*0.01

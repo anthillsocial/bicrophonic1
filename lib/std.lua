@@ -16,8 +16,6 @@
 
 module("std", package.seeall)
 
-print("LOADED STD")
-
 ---
 -- @param command
 function stdout(command)

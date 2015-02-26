@@ -28,28 +28,25 @@ fi
 # get clogged up
 N=$(ps aux | grep gpsd_lua | grep -v grep)
 if [ ! -z "$N" ]; then
-    #killall -v gpsd_lua
     ps aux | grep gpsd_lua | awk '{ print $2}' | xargs kill -9
-    #echo "killed gpsd_lua"
 fi
 N=$(ps aux | grep bicrophonic1 | grep -v grep)
 if [ ! -z "$N" ]; then
-    #killall -v bicrophonic1
     ps aux | grep bicrophonic1 | awk '{ print $2}' | xargs kill -9
-    #echo "killed bicrophonic1"
 fi
 N=$(ps aux | grep SonicBikeAudioEngine | grep -v grep)
 if [ ! -z "$N" ]; then
     ps aux | grep SonicBikeAudioEngine | awk '{ print $2}' | xargs kill -9
-    #echo "killed SonicBikeAudioEngine"
 fi
 N=$(ps aux | grep audiotest.sh | grep -v grep)
 if [ ! -z "$N" ]; then
     ps aux | grep audiotest.sh | awk '{ print $2}' | xargs kill -9
-    #echo "killed SonicBikeAudioEngine"
 fi
 N=$(ps aux | grep worms | grep -v grep)
 if [ ! -z "$N" ]; then
     ps aux | grep worms | awk '{ print $2}' | xargs kill -9
-    #echo "killed SonicBikeAudioEngine"
+fi
+N=$(ps aux | grep swamp_playd | grep -v grep)
+if [ ! -z "$N" ]; then
+    ps aux | grep swamp_playd | awk '{ print $2}' | xargs kill -9
 fi

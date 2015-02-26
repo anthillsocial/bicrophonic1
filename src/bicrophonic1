@@ -2,7 +2,7 @@
 
 -- Swamp Bike Opera embedded system for Kaffe Matthews 
 -- Copyright (C) 2012 Wolfgang Hauptfleisch, Dave Griffiths
---
+-- Additons in 2014 Copyright (C) 2014 Tom Keene
 -- This program is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License as published by
 -- the Free Software Foundation, either version 3 of the License, or
@@ -20,6 +20,10 @@ local scriptpath=string.match(arg[0], '^.*/')
 
 package.path = package.path..";"..scriptpath.."/?.lua;"..scriptpath.."/../lib/?.lua"
 
+require 'utils'
+require 'json'
+CONFIG=utils.load_json("/home/sonic/sdcard/config.json")  
+
 require 'std'
 require 'engine'
 require 'audioc'
@@ -30,10 +34,6 @@ require 'map'
 require 'direction'
 require 'random'
 require 'socket'
-require 'utils'
-require 'json'
-
-CONFIG=utils.load_json("/home/sonic/sdcard/config.json")  
 
 local logfile = CONFIG.logfile
 local gpsdev  = CONFIG.gps_device
@@ -53,7 +53,7 @@ function isfile(file)
     return true
 end
 
--- check that the map file exists
+-- Check that the map file exists
 local files = {gpsdev,mapfile}
 if isfile(mapfile)==false then
     utils.log(logfile, module..": Error: "..mapfile.." does not exist")
@@ -73,26 +73,19 @@ end
 local themap=utils.load_json(mapfile)
 map.test_map(themap, logfile)
 
--- start the audio player
---os.execute(audio_player_bin.." &") 
---utils.log(logfile, "openframeworks audio player started")
---posix.sleep(4)
---os.execute("send_osc 12345 /load 10 startup.wav")
---os.execute("send_osc 12345 /play 10")
---utils.log(logfile, "send_osc 12345 /load 10 startup.wav")
---utils.log(logfile, "send_osc 12345 /play 10")
-
 -- Shall we grab fake or real gps?
+local gpsfile = ''
 if fake_gps == 'false' then
     -- start the gps daemon 
     os.execute(scriptpath.."../lib/gpsd_lua &")
-    utils.log(logfile, "gpsd_lua started")
-    utils.log(logfile, "waiting for gpsd")
+    utils.log(logfile, "Real GPS: gpsd_lua started")
+    utils.log(logfile, "Real GPS: waiting for gpsd")
     posix.sleep(4)
     --- connect to the gps pipe
     utils.log(logfile, "attempting gps pipe connection") 
-    local file = io.open("/tmp/swamp_gps","r")
+    gpsfile = io.open("/tmp/swamp_gps","r")
     utils.log(logfile, "connected to gps pipe")
+    posix.sleep(1)
 else
     utils.log(logfile, "Attempt to run fake gps")
     -- Check fake gps file exists
@@ -101,9 +94,9 @@ else
         utils.log(logfile, module..": Exiting") os.exit(1)
     end
     --- now lets connect to a fake gps trail
-    utils.log(logfile, "grabbing fake gps: "..fake_gps_log)
-    file = io.open(fake_gps_log, "r")
-    io.input(file)
+    utils.log(logfile, "Fake GPS Loading: "..fake_gps_log)
+    gpsfile = io.open(fake_gps_log, "r")
+    io.input(gpsfile)
 end
 
 --------------------
@@ -130,9 +123,9 @@ while true do
         -- print(line)
         line = string.sub(line, 26)
     else
-        line = file:read()
+        line = gpsfile:read()
     end
-    
+    --print(line)
     -- if we have a new gps fix
     local period_seconds=60*10
     t=math.sin((os.time()*180/period_seconds)*3.141/180)*0.5+0.5

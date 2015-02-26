@@ -24,7 +24,7 @@ require 'posix'
 require 'engine'
 require 'utils'
 
-local close_distance=0.0015
+local close_distance=CONFIG.close_distance -- 0.0015
 
 function blend_zone(zone,t)
     --print("t="..t)

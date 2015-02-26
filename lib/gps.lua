@@ -54,15 +54,15 @@ function wgs_to_dec(lat, sign1, lon, sign2)
         file:write(std.round(testing_pos.lat, 10).." "..
                    std.round(testing_pos.lng, 10))
 
-	print("testing_pos:"..testing_pos.lat..", "..testing_pos.lng)
+	    print("testing_pos:"..testing_pos.lat..", "..testing_pos.lng)
         testing_pos.lat=testing_pos.lat+0.0001*math.cos(test_time)
         testing_pos.lng=testing_pos.lng+0.0001*math.sin(test_time)
 
         test_time=test_time+0.1
     else
-        file:write(std.round(lat_deg, 10).." "..std.round(lon_deg, 10))
+        file:write(std.round(lat_deg, 10).." "..std.round(lon_deg, 10)..'\n')
     end
-
+    
     file:close()
 end
 
@@ -122,6 +122,7 @@ function loop(device, logfile)
             end
         end
     end
+    --print('looping')
     return false
 end
 

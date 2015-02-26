@@ -179,7 +179,7 @@ function play_events(events,pos_state)
     -- first if the direction has been updated, go through
     -- all the panned samples
     if pos_state.new_direction then
-        print("updating direction")
+       -- print("updating direction")
         for name,dir in pairs(panned_samples) do
             local pan=direction.pan_from(pos_state.dir,dir)
             print("shifting "..name.." to "..pan)
@@ -204,24 +204,51 @@ function play_events(events,pos_state)
 		    print "wrong way"
 		end
 	    end
-
+        
 	    if switch_dir=="centre" or direction_compare(switch_dir,heading) then
                 -- defaults
 	    	local name=event.zone_name
 	    	local loop="no"
+		
+		-- PARAMETER: LOOP
 		if (utils.find_value("Sample Parameters:Loop",event.zone_categories)) then
 	       	   loop="yes"
 	    	end
 	    	local dir=cats_to_direction("Pan Parameter",event.zone_categories)
 
-        -- is it a one shot sample?
+        -- PARAMETER: one shot sample
 		if (utils.find_value("Sample Parameters:One shot",event.zone_categories)) then
             one_shot_samples[name]="yes"
         end
+        
+        -- PARAMETER: Point Luking (Loop from a specific point for a length within the sampe defined by worms)
+        if (utils.find_value("Sample Parameters:Start Point Luking",event.zone_categories)) then
+            audioc.positionloop(name)    
+        end
+        
+        -- PARAMETER: Pitch  (change defined by worms)
+        if (utils.find_value("Sample Parameters:Pitch",event.zone_categories)) then
+            audioc.pitch(name)   
+        end
+
+        -- PARAMETER: Volume (change defined by worms)
+        if (utils.find_value("Sample Parameters:Volume",event.zone_categories)) then
+            audioc.volume(name)   
+        end
+        
+        -- PARAMETER: Random (change defined by worms)
+        if (utils.find_value("Sample Parameters:Random",event.zone_categories)) then
+            audioc.random(name)   
+        end
+
+        -- PARAMETER: Start point (change defined by worms)
+        if (utils.find_value("Sample Parameters:Start Point",event.zone_categories)) then
+            audioc.startpoint(name)   
+        end
 
 		-- look for an override
-            	local override=overrides[event.zone_name]
-            	if override then
+        local override=overrides[event.zone_name]
+        if override then
 	           dispatch_override(event,pos_state,override)
 	    	else
 		    -- default behaviour
